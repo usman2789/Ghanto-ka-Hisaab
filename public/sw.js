@@ -12,6 +12,19 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Let all requests pass through
-  event.respondWith(fetch(event.request));
+  // Skip chrome-extension and non-http requests
+  if (!event.request.url.startsWith('http')) {
+    return;
+  }
+  
+  // Let all requests pass through without interception
+  event.respondWith(
+    fetch(event.request).catch(() => {
+      // Return a basic response if fetch fails
+      return new Response('Offline', {
+        status: 503,
+        statusText: 'Service Unavailable'
+      });
+    })
+  );
 });
