@@ -16,17 +16,6 @@ export const metadata: Metadata = {
   title: "Ghanto ka Hisaab - Track Your Hours",
   description: "Track your hours efficiently with Ghanto ka Hisaab",
   manifest: "/manifest.json",
-  themeColor: "#18181b",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "Ghanto ka Hisaab",
-  },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-  },
 };
 
 export default function RootLayout({
@@ -38,10 +27,15 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+        <meta name="theme-color" content="#18181b" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Ghanto ka Hisaab" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

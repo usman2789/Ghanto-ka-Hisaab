@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import CalendarView from '@/components/CalendarView'
 import HourTracker from '@/components/HourTracker'
-import InstallPrompt from '@/components/InstallPrompt'
 
 interface HourEntry {
   hour: number
@@ -36,9 +35,15 @@ export default function Home() {
     getUser()
 
     // Register service worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch((error) => {
-        console.log('Service Worker registration failed:', error)
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((registration) => {
+            console.log('SW registered:', registration)
+          })
+          .catch((error) => {
+            console.log('SW registration failed:', error)
+          })
       })
     }
   }, [currentYear, currentMonth])
@@ -223,9 +228,6 @@ export default function Home() {
           onClose={() => setSelectedDate(null)}
         />
       )}
-
-      {/* Install Prompt */}
-      <InstallPrompt />
     </div>
   )
 }
