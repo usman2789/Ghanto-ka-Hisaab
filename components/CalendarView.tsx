@@ -56,14 +56,14 @@ export default function CalendarView({ year, month, entries, onDateClick }: Cale
             <button
               key={day}
               onClick={() => onDateClick(new Date(year, month, day))}
-              className={`aspect-square rounded-lg border-2 border-zinc-900 p-2 font-bold transition-all hover:scale-105 ${getProgressColor(count)} ${
+              className={`aspect-square rounded-lg border-2 border-zinc-900 p-1 sm:p-2 font-bold transition-all hover:scale-105 ${getProgressColor(count)} ${
                 isToday ? 'ring-2 ring-blue-500' : ''
               }`}
             >
-              <div className="flex flex-col items-center justify-center h-full">
-                <span className="text-lg text-zinc-900">{day}</span>
+              <div className="flex flex-col items-center justify-center h-full gap-0.5">
+                <span className="text-sm sm:text-lg text-zinc-900">{day}</span>
                 {count > 0 && (
-                  <span className="text-xs text-zinc-600 mt-1">
+                  <span className="text-[10px] sm:text-xs text-zinc-600 leading-none whitespace-nowrap">
                     {count}/24
                   </span>
                 )}

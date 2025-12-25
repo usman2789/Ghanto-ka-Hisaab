@@ -66,13 +66,13 @@ export default function HourTracker({ date, entries, onSave, onClose }: HourTrac
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-6xl max-h-[90vh] overflow-hidden rounded-lg border-2 border-zinc-900 bg-white shadow-[4px_4px_0_0_#323232]">
-        <div className="flex items-center justify-between border-b-2 border-zinc-900 bg-zinc-200 p-4">
-          <h2 className="text-xl font-bold text-zinc-900">
+        <div className="flex items-center justify-between border-b-2 border-zinc-900 bg-zinc-200 p-3 sm:p-4">
+          <h2 className="text-base sm:text-xl font-bold text-zinc-900 truncate pr-2">
             {date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
           </h2>
           <button
             onClick={onClose}
-            className="text-2xl font-bold text-zinc-900 hover:text-red-600"
+            className="text-2xl font-bold text-zinc-900 hover:text-red-600 flex-shrink-0"
           >
             ×
           </button>
@@ -86,7 +86,7 @@ export default function HourTracker({ date, entries, onSave, onClose }: HourTrac
                 <button
                   key={hour}
                   onClick={() => handleHourClick(hour)}
-                  className={`w-full mb-2 p-3 rounded-lg border-2 border-zinc-900 text-left font-semibold transition-all ${
+                  className={`w-full mb-2 p-2 sm:p-3 rounded-lg border-2 border-zinc-900 text-left font-semibold transition-all ${
                     selectedHour === hour
                       ? 'bg-zinc-900 text-white'
                       : entries[hour]?.tags?.length
@@ -95,9 +95,9 @@ export default function HourTracker({ date, entries, onSave, onClose }: HourTrac
                   }`}
                 >
                   <div className="flex justify-between items-center gap-2">
-                    <span>{hour.toString().padStart(2, '0')}:00 - {((hour + 1) % 24).toString().padStart(2, '0')}:00</span>
+                    <span className="text-sm sm:text-base whitespace-nowrap">{hour.toString().padStart(2, '0')}:00 - {((hour + 1) % 24).toString().padStart(2, '0')}:00</span>
                     {entries[hour]?.tags?.length > 0 && (
-                      <span className="text-xs bg-zinc-900 text-white px-2 py-1 rounded truncate">
+                      <span className="text-[10px] sm:text-xs bg-zinc-900 text-white px-1.5 sm:px-2 py-1 rounded truncate flex-shrink min-w-0">
                         {entries[hour].tags.length === 1
                           ? entries[hour].tags[0]
                           : entries[hour].tags.length === 2
