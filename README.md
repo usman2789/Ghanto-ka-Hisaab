@@ -18,7 +18,7 @@
 
 ## 📖 About
 
-**Ghanto ka Hisaab** (literally "Account of Hours" in Hindi) is a simple yet powerful hour tracking application that helps you monitor and categorize how you spend your time throughout the day. Track your activities hour by hour, view monthly progress, and gain insights into your daily routines.
+**Ghanto ka Hisaab**  is a simple yet powerful hour tracking application that helps you monitor and categorize how you spend your time throughout the day. Track your activities hour by hour, view monthly progress, and gain insights into your daily routines.
 
 ### ✨ Key Features
 
