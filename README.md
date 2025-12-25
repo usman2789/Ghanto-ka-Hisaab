@@ -59,9 +59,13 @@
 - **Row Level Security (RLS)** - Data isolation per user
 
 ### PWA Features
-- **Service Worker** - Offline functionality
-- **Web App Manifest** - Installable app
-- **Cache API** - Fast loading
+- **[next-pwa](https://github.com/shadowwalker/next-pwa)** - PWA plugin for Next.js
+- **Service Worker** - Offline functionality with NetworkFirst strategy
+- **Web App Manifest** - Installable app with custom icons
+- **Cache API** - Smart caching for fast loading
+- **Install Prompt** - Custom UI for app installation
+- **Update Management** - Seamless service worker updates
+- **Debug Tools** - PWA debugger for development
 
 ---
 
@@ -81,6 +85,10 @@ cd ghanto-ka-hisaab
 ### 2. Install Dependencies
 ```bash
 npm install
+
+# PWA dependencies are included:
+# - next-pwa: PWA plugin for Next.js
+# - webpack: Required for PWA compilation
 ```
 
 ### 3. Set Up Environment Variables
@@ -121,10 +129,17 @@ Run the SQL schema from `supabase-schema.sql` in your Supabase SQL Editor:
 2. Set **Site URL**: `http://localhost:3000` (development)
 3. Add **Redirect URLs**:
    - `http://localhost:3000/auth/callback`
-   - `https://your-domain.com/auth/callback` (production)
+# Development mode (PWA disabled for faster development)
+npm run dev
 
-### 6. Run Development Server
-```bash
+# Production build (PWA enabled)
+npm run build
+npm start
+```
+
+Open [http://localhost:3000](http://localhost:3000) to view the app.
+
+**Note**: PWA features are disabled in development mode for faster iteration. To test PWA functionality, build and run in production mode
 npm run dev
 ```
 
@@ -148,16 +163,23 @@ ghanto-ka-hisaab/
 ├── components/
 │   ├── CalendarView.tsx           # Monthly calendar grid
 │   ├── HourTracker.tsx            # Hour tracking modal
-│   └── InstallPrompt.tsx          # PWA install prompt
+│   ├── PWAInstallPrompt.tsx       # PWA install notification
+│   ├── PWADebugger.tsx            # PWA debug panel (dev only)
+│   └── PWALifecycleManager.tsx    # Service worker lifecycle handler
 ├── utils/
 │   └── supabase/
 │       ├── client.ts              # Browser Supabase client
 │       ├── server.ts              # Server Supabase client
 │       └── middleware.ts          # Session management
-├── public/
-│   ├── manifest.json              # PWA manifest
-│   ├── sw.js                      # Service worker
-│   ├── icon-192.png               # App icon (192x192)
+├── public/Generated service worker
+│   ├── workbox-*.js               # Workbox runtime
+│   ├── android-chrome-192x192.png # App icon (192x192)
+│   ├── android-chrome-512x512.png # App icon (512x512)
+│   └── apple-touch-icon.png       # iOS app icon
+├── proxy.ts                       # Next.js 16 proxy (replaces middleware)
+├── next.config.js                 # Next.js config with PWA setup
+├── PWA_DOCUMENTATION.md           # Complete PWA technical docs
+├── PWA_SIMPLE_GUIDE.md            # PWA explained simply
 │   └── icon-512.png               # App icon (512x512)
 ├── proxy.ts                       # Next.js 16 proxy (replaces middleware)
 ├── supabase-schema.sql            # Database schema
@@ -181,11 +203,36 @@ ghanto-ka-hisaab/
 ### Hour Tracking Modal
 - 24 vertical hour slots (00:00 - 23:00)
 - Each slot shows existing tags
-- Predefined tags: Sleep, Daily Task, Study, Phone Scrolling, With Friends, Fun, Work, Exercise, Meals, Travel, Entertainment, Other
-- Add unlimited custom tags
-- Optional detail notes
-- Green highlight for tracked hours
-- Real-time save to database
+- **Smart Install Prompt**: Custom UI appears after engagement criteria met
+- **Offline Support**: Full functionality without internet using NetworkFirst caching
+- **Home Screen Installation**: Add to home screen on iOS and Android
+- **Standalone Experience**: Opens like a native app (no browser UI)
+- **Fast Loading**: Service worker caches resources for instant loading
+- **Auto-Updates**: Seamless service worker updates with user prompts
+- **Debug Panel**: Development-only panel to monitor PWA status
+- **Cross-Device Sync**: Works across all your devices via Supabase
+
+### How PWA Works
+```
+First Visit:
+  → Download app and cache resources
+  → Register service worker
+  → Save to cache storage
+
+Next Visits:
+  → Load from cache (instant! ⚡)
+  → Check for updates in background
+  → Sync with server when online
+
+Offline:
+  → Service worker serves cached version
+  → Full app functionality maintained
+  → Data syncs when connection restored
+```
+
+For detailed PWA documentation, see:
+- **[PWA_DOCUMENTATION.md](PWA_DOCUMENTATION.md)** - Complete technical guide
+- **[PWA_SIMPLE_GUIDE.md](PWA_SIMPLE_GUIDE.md)** - Easy-to-understand explanation
 
 ### PWA Features
 - Install prompt appears after login
@@ -231,14 +278,26 @@ ghanto-ka-hisaab/
 
 Contributions are welcome! Here's how you can help:
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+### ✅ Completed
+- [x] Progressive Web App (PWA) implementation
+- [x] Offline support with service workers
+- [x] Install prompt with custom UI
+- [x] Service worker lifecycle management
+- [x] PWA debugging tools
+- [x] Comprehensive PWA documentation
 
-### Development Guidelines
-- Follow TypeScript best practices
+### 🚧 In Progress
+- [ ] Export data to CSV/JSON
+- [ ] Weekly/Monthly analytics dashboard
+
+### 📅 Planned
+- [ ] Dark mode support
+- [ ] Multiple language support
+- [ ] Recurring task templates
+- [ ] Time goal setting
+- [ ] Data visualization charts
+- [ ] Push notifications for reminders
+- [ ] Background sync for offline edits
 - Use Tailwind CSS for styling
 - Write meaningful commit messages
 - Test on multiple devices
