@@ -117,10 +117,6 @@ export default function Home() {
     const { error } = await supabase
       .from('hour_entries')
       .upsert({
-      // Invalidate cache for the current month
-      const cacheKey = `${currentYear}-${currentMonth}`
-      delete monthCache[cacheKey]
-      
         date: dateStr,
         hour,
         tags,
@@ -131,6 +127,10 @@ export default function Home() {
       })
 
     if (!error) {
+      // Invalidate cache for the current month
+      const cacheKey = `${currentYear}-${currentMonth}`
+      delete monthCache[cacheKey]
+      
       await loadDayEntries(selectedDate)
       await loadMonthEntries()
     }
@@ -187,17 +187,17 @@ export default function Home() {
         </div>
 
         {/* Month Navigation */}
-        <div className="flex items-center justify-between mb-6 p-4 rounded-lg border-2 border-zinc-900 bg-zinc-100">
+        <div className="grid grid-cols-3 items-center gap-4 mb-6 p-4 rounded-lg border-2 border-zinc-900 bg-zinc-100">
           <button
             onClick={() => changeMonth(-1)}
-            className="px-4 py-2 rounded-lg border-2 border-zinc-900 bg-white font-bold text-zinc-900 hover:bg-zinc-200"
+            className="px-4 py-2 rounded-lg border-2 border-zinc-900 bg-white font-bold text-zinc-900 hover:bg-zinc-200 justify-self-start"
           >
             ← Prev
           </button>
-          <h2 className="text-xl font-bold text-zinc-900">{monthName}</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-zinc-900 text-center">{monthName}</h2>
           <button
             onClick={() => changeMonth(1)}
-            className="px-4 py-2 rounded-lg border-2 border-zinc-900 bg-white font-bold text-zinc-900 hover:bg-zinc-200"
+            className="px-4 py-2 rounded-lg border-2 border-zinc-900 bg-white font-bold text-zinc-900 hover:bg-zinc-200 justify-self-end"
           >
             Next →
           </button>
