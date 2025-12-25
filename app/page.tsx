@@ -146,7 +146,7 @@ export default function Home() {
     let newYear = currentYear
 
     if (newMonth > 11) {
-      newLoader /
+      newMonth = 0
       newYear++
     } else if (newMonth < 0) {
       newMonth = 11
