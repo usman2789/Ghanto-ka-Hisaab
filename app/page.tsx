@@ -5,12 +5,16 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import CalendarView from '@/components/CalendarView'
 import HourTracker from '@/components/HourTracker'
+import Loader from '@/components/Loader'
 
 interface HourEntry {
   hour: number
   tags: string[]
   details?: string
 }
+
+// Cache to persist month data
+const monthCache: { [key: string]: { [date: string]: number } } = {}
 
 export default function Home() {
   const [user, setUser] = useState<any>(null)
@@ -49,6 +53,14 @@ export default function Home() {
   }, [currentYear, currentMonth])
 
   const loadMonthEntries = async () => {
+    const cacheKey = `${currentYear}-${currentMonth}`
+    
+    // Check if data is already cached
+    if (monthCache[cacheKey]) {
+      setMonthEntries(monthCache[cacheKey])
+      return
+    }
+
     const firstDay = new Date(currentYear, currentMonth, 1).toISOString().split('T')[0]
     const lastDay = new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0]
 
@@ -64,6 +76,8 @@ export default function Home() {
         if (!entries[entry.date]) entries[entry.date] = 0
         entries[entry.date]++
       })
+      // Cache the data
+      monthCache[cacheKey] = entries
       setMonthEntries(entries)
     }
   }
@@ -103,6 +117,10 @@ export default function Home() {
     const { error } = await supabase
       .from('hour_entries')
       .upsert({
+      // Invalidate cache for the current month
+      const cacheKey = `${currentYear}-${currentMonth}`
+      delete monthCache[cacheKey]
+      
         date: dateStr,
         hour,
         tags,
@@ -128,7 +146,7 @@ export default function Home() {
     let newYear = currentYear
 
     if (newMonth > 11) {
-      newMonth = 0
+      newLoader /
       newYear++
     } else if (newMonth < 0) {
       newMonth = 11
