@@ -10,7 +10,7 @@
 
 **A modern, minimalist hour tracking Progressive Web App (PWA) built with Next.js 16 and Supabase**
 
-[Live Demo](https://ghantokahisaab.vercel.app) · [Report Bug](https://github.com/yourusername/ghanto-ka-hisaab/issues) · [Request Feature](https://github.com/yourusername/ghanto-ka-hisaab/issues)
+[Live Demo](https://ghantokahisaab.vercel.app) · [Report Bug](https://github.com/usman2789/Ghanto-ka-Hisaab/issues) · [Request Feature](https://github.com/usman2789/Ghanto-ka-Hisaab/issues)
 
 </div>
 
@@ -78,8 +78,8 @@
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/ghanto-ka-hisaab.git
-cd ghanto-ka-hisaab
+git clone https://github.com/usman2789/Ghanto-ka-Hisaab.git
+cd Ghanto-ka-Hisaab
 ```
 
 ### 2. Install Dependencies
@@ -247,7 +247,7 @@ For detailed PWA documentation, see:
 
 ### Deploy to Vercel
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/ghanto-ka-hisaab)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/usman2789/Ghanto-ka-Hisaab)
 
 #### Manual Deployment Steps
 
@@ -323,7 +323,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📧 Contact
 
-Project Link: [https://github.com/yourusername/ghanto-ka-hisaab](https://github.com/yourusername/ghanto-ka-hisaab)
+Project Link: [https://github.com/usman2789/Ghanto-ka-Hisaab](https://github.com/usman2789/Ghanto-ka-Hisaab)
 
 Live Demo: [https://ghantokahisaab.vercel.app](https://ghantokahisaab.vercel.app)
 

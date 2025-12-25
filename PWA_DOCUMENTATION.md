@@ -1,7 +1,22 @@
 # PWA Implementation Documentation
 
 ## Overview
-This document provides comprehensive technical documentation for the Progressive Web App (PWA) implementation in the Ghanto ka Hisaab tracker application.
+
+This document provides comprehensive technical documentation for the Progressive Web App (PWA) implementation in **Ghanto ka Hisaab**, a modern hour tracking application. This implementation follows industry best practices and leverages Next.js 16's capabilities to deliver a seamless, installable web experience with offline functionality.
+
+### Key Features
+- ✅ **Offline-First Architecture**: Full functionality without internet connectivity
+- ✅ **Installable Experience**: Native app-like installation on all platforms
+- ✅ **Smart Caching**: NetworkFirst strategy for optimal performance
+- ✅ **Lifecycle Management**: Graceful service worker updates
+- ✅ **Debug Tools**: Development utilities for monitoring PWA status
+- ✅ **Cross-Platform**: Works seamlessly on iOS, Android, desktop
+
+### Technology Stack
+- **next-pwa**: Industry-standard PWA plugin for Next.js
+- **Workbox**: Google's production-ready service worker libraries
+- **Service Workers API**: Browser-native offline capabilities
+- **Cache Storage API**: Persistent client-side storage
 
 ## 📋 Table of Contents
 1. [Installation & Setup](#installation--setup)
