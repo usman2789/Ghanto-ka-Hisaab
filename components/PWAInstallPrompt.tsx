@@ -60,30 +60,28 @@ export default function PWAInstallPrompt() {
   }
 
   return (
-    <div className="fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:max-w-sm bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-xl p-4 z-50 animate-slide-up">
-      <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 w-12 h-12 bg-zinc-800 dark:bg-zinc-700 rounded-lg flex items-center justify-center">
-          <span className="text-2xl">📱</span>
-        </div>
-        <div className="flex-1">
-          <h3 className="font-semibold text-sm mb-1">Install Ghanto ka Hisaab</h3>
-          <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-            Install this app on your home screen for quick and easy access when you're on the go.
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={handleInstallClick}
-              className="flex-1 px-4 py-2 bg-zinc-800 dark:bg-zinc-700 text-white text-sm rounded-lg hover:bg-zinc-700 dark:hover:bg-zinc-600 transition-colors"
-            >
-              Install
-            </button>
-            <button
-              onClick={handleDismiss}
-              className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-            >
-              Not now
-            </button>
+    <div className="fixed top-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg p-3 z-50 animate-fade-in">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 flex-1">
+          <span className="text-xl">📱</span>
+          <div className="flex-1">
+            <p className="text-sm font-medium">Install Ghanto ka Hisaab</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400">Get quick access from your home screen</p>
           </div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={handleInstallClick}
+            className="px-3 py-1.5 bg-zinc-800 dark:bg-zinc-700 text-white text-xs rounded hover:bg-zinc-700 dark:hover:bg-zinc-600 transition-colors"
+          >
+            Install
+          </button>
+          <button
+            onClick={handleDismiss}
+            className="px-3 py-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+          >
+            ✕
+          </button>
         </div>
       </div>
     </div>
