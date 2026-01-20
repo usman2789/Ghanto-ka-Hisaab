@@ -1,12 +1,24 @@
 'use client'
 
 import { createClient } from '@/utils/supabase/client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { User } from '@supabase/supabase-js'
 import CalendarView from '@/components/CalendarView'
 import HourTracker from '@/components/HourTracker'
 import Loader from '@/components/Loader'
 import FeedbackForm from '@/components/FeedbackForm'
+import StaggeredMenu from '@/components/StaggeredMenu'
+import OfflineSyncManager from '@/components/OfflineSyncManager'
+import {
+  initDB,
+  isOnline,
+  addPendingEntry,
+  cacheSingleEntry,
+  cacheHourEntries,
+  getMergedEntriesForDate,
+  getMergedMonthEntries
+} from '@/utils/offlineSync'
 
 interface HourEntry {
   hour: number
@@ -18,7 +30,7 @@ interface HourEntry {
 const monthCache: { [key: string]: { [date: string]: number } } = {}
 
 export default function Home() {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth())
@@ -26,19 +38,92 @@ export default function Home() {
   const [monthEntries, setMonthEntries] = useState<{ [date: string]: number }>({})
   const [dayEntries, setDayEntries] = useState<{ [hour: number]: HourEntry }>({})
   const [showFeedbackForm, setShowFeedbackForm] = useState(false)
+  const [isOffline, setIsOffline] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
+  // Load month entries - now supports offline data
+  const loadMonthEntries = useCallback(async () => {
+    if (!user) return
+    
+    const cacheKey = `${currentYear}-${currentMonth}`
+    
+    // Check if data is already cached in memory
+    if (monthCache[cacheKey] && isOnline()) {
+      setMonthEntries(monthCache[cacheKey])
+      return
+    }
+
+    // If offline, use merged local data
+    if (!isOnline()) {
+      try {
+        const mergedEntries = await getMergedMonthEntries(currentYear, currentMonth, user.id)
+        setMonthEntries(mergedEntries)
+      } catch (e) {
+        console.error('Error loading offline entries:', e)
+      }
+      return
+    }
+
+    // Online: fetch from Supabase - use local date format to avoid timezone issues
+    const firstDay = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`
+    const lastDay = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${new Date(currentYear, currentMonth + 1, 0).getDate()}`
+
+    const { data, error } = await supabase
+      .from('hour_entries')
+      .select('date, hour')
+      .gte('date', firstDay)
+      .lte('date', lastDay)
+
+    if (!error && data) {
+      const entries: { [date: string]: number } = {}
+      data.forEach((entry: { date: string; hour: number }) => {
+        if (!entries[entry.date]) entries[entry.date] = 0
+        entries[entry.date]++
+      })
+      // Cache the data
+      monthCache[cacheKey] = entries
+      
+      // Also merge with any pending offline entries
+      try {
+        const mergedEntries = await getMergedMonthEntries(currentYear, currentMonth, user.id)
+        // Merge online data with offline pending
+        Object.keys(mergedEntries).forEach(date => {
+          if (!entries[date] || mergedEntries[date] > entries[date]) {
+            entries[date] = mergedEntries[date]
+          }
+        })
+      } catch (e) {
+        console.error('Error merging offline entries:', e)
+      }
+      
+      setMonthEntries(entries)
+    }
+  }, [currentYear, currentMonth, user, supabase])
+
   useEffect(() => {
-    const getUser = async () => {
+    const init = async () => {
+      // Initialize offline DB
+      await initDB()
+      
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
       setLoading(false)
-      if (user) {
-        loadMonthEntries()
-      }
     }
-    getUser()
+    init()
+
+    // Listen for online/offline events
+    const handleOnline = () => setIsOffline(false)
+    const handleOffline = () => setIsOffline(true)
+    
+    // Initialize offline state
+    const checkOnlineStatus = () => {
+      setIsOffline(!isOnline())
+    }
+    checkOnlineStatus()
+    
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
 
     // Register service worker
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
@@ -52,40 +137,56 @@ export default function Home() {
           })
       })
     }
-  }, [currentYear, currentMonth])
-
-  const loadMonthEntries = async () => {
-    const cacheKey = `${currentYear}-${currentMonth}`
     
-    // Check if data is already cached
-    if (monthCache[cacheKey]) {
-      setMonthEntries(monthCache[cacheKey])
-      return
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
     }
+  }, [supabase])
 
-    const firstDay = new Date(currentYear, currentMonth, 1).toISOString().split('T')[0]
-    const lastDay = new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0]
-
-    const { data, error } = await supabase
-      .from('hour_entries')
-      .select('date, hour')
-      .gte('date', firstDay)
-      .lte('date', lastDay)
-
-    if (!error && data) {
-      const entries: { [date: string]: number } = {}
-      data.forEach((entry: any) => {
-        if (!entries[entry.date]) entries[entry.date] = 0
-        entries[entry.date]++
-      })
-      // Cache the data
-      monthCache[cacheKey] = entries
-      setMonthEntries(entries)
+  // Load month entries when user or month changes
+  useEffect(() => {
+    if (user) {
+      loadMonthEntries()
     }
+  }, [user, currentYear, currentMonth, loadMonthEntries])
+
+  // Helper to format date in local timezone
+  const formatLocalDate = (date: Date): string => {
+    const y = date.getFullYear()
+    const m = String(date.getMonth() + 1).padStart(2, '0')
+    const d = String(date.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
   }
 
   const loadDayEntries = async (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0]
+    if (!user) return
+    
+    const dateStr = formatLocalDate(date)
+    
+    // If offline, use merged local data
+    if (!isOnline()) {
+      try {
+        const merged = await getMergedEntriesForDate(dateStr, user.id)
+        const entries: { [hour: number]: HourEntry } = {}
+        Object.keys(merged).forEach(hourKey => {
+          const hour = parseInt(hourKey)
+          const entry = merged[hour]
+          entries[hour] = {
+            hour: entry.hour,
+            tags: entry.tags || [],
+            details: entry.details
+          }
+        })
+        setDayEntries(entries)
+      } catch (e) {
+        console.error('Error loading offline day entries:', e)
+        setDayEntries({})
+      }
+      return
+    }
+
+    // Online: fetch from Supabase
     const { data, error } = await supabase
       .from('hour_entries')
       .select('*')
@@ -93,13 +194,47 @@ export default function Home() {
 
     if (!error && data) {
       const entries: { [hour: number]: HourEntry } = {}
-      data.forEach((entry: any) => {
+      
+      // Cache entries for offline use
+      const cacheEntries = data.map((entry: { id: string; date: string; hour: number; tags: string[]; details?: string; user_id: string }) => ({
+        id: entry.id,
+        date: entry.date,
+        hour: entry.hour,
+        tags: entry.tags || [],
+        details: entry.details,
+        user_id: entry.user_id
+      }))
+      
+      try {
+        await cacheHourEntries(cacheEntries)
+      } catch (e) {
+        console.error('Error caching entries:', e)
+      }
+      
+      data.forEach((entry: { hour: number; tags: string[]; details?: string }) => {
         entries[entry.hour] = {
           hour: entry.hour,
           tags: entry.tags || [],
           details: entry.details
         }
       })
+      
+      // Also merge with any pending offline entries
+      try {
+        const merged = await getMergedEntriesForDate(dateStr, user.id)
+        Object.keys(merged).forEach(hourKey => {
+          const hour = parseInt(hourKey)
+          const entry = merged[hour]
+          entries[hour] = {
+            hour: entry.hour,
+            tags: entry.tags || [],
+            details: entry.details
+          }
+        })
+      } catch (e) {
+        console.error('Error merging offline day entries:', e)
+      }
+      
       setDayEntries(entries)
     } else {
       setDayEntries({})
@@ -112,10 +247,39 @@ export default function Home() {
   }
 
   const handleSaveHour = async (hour: number, tags: string[], details?: string) => {
-    if (!selectedDate) return
+    if (!selectedDate || !user) return
 
-    const dateStr = selectedDate.toISOString().split('T')[0]
+    const dateStr = formatLocalDate(selectedDate)
     
+    // If offline, save to IndexedDB
+    if (!isOnline()) {
+      try {
+        await addPendingEntry(dateStr, hour, tags, details, user.id)
+        
+        // Also cache locally for immediate display
+        await cacheSingleEntry({
+          id: `pending-${Date.now()}`,
+          date: dateStr,
+          hour,
+          tags,
+          details,
+          user_id: user.id
+        })
+        
+        // Invalidate memory cache
+        const cacheKey = `${currentYear}-${currentMonth}`
+        delete monthCache[cacheKey]
+        
+        await loadDayEntries(selectedDate)
+        await loadMonthEntries()
+        return
+      } catch (e) {
+        console.error('Error saving offline:', e)
+        return
+      }
+    }
+    
+    // Online: save to Supabase
     const { error } = await supabase
       .from('hour_entries')
       .upsert({
@@ -129,6 +293,20 @@ export default function Home() {
       })
 
     if (!error) {
+      // Also cache locally
+      try {
+        await cacheSingleEntry({
+          id: `${user.id}-${dateStr}-${hour}`,
+          date: dateStr,
+          hour,
+          tags,
+          details,
+          user_id: user.id
+        })
+      } catch (e) {
+        console.error('Error caching entry:', e)
+      }
+      
       // Invalidate cache for the current month
       const cacheKey = `${currentYear}-${currentMonth}`
       delete monthCache[cacheKey]
@@ -159,6 +337,16 @@ export default function Home() {
     setCurrentYear(newYear)
   }
 
+  // Handle sync complete - reload data (must be before early returns)
+  const handleSyncComplete = useCallback(() => {
+    // Invalidate all month caches
+    Object.keys(monthCache).forEach(key => delete monthCache[key])
+    loadMonthEntries()
+    if (selectedDate) {
+      loadDayEntries(selectedDate)
+    }
+  }, [loadMonthEntries, selectedDate, loadDayEntries])
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-white">
@@ -169,32 +357,36 @@ export default function Home() {
 
   const monthName = new Date(currentYear, currentMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
+  const menuItems = [
+    { label: 'Dashboard', href: '/' },
+    { label: 'Statistics', href: '/stats' },
+    { label: 'Tracker', href: '/tracker-new' },
+    ...(user?.email === 'amusman9705@gmail.com' ? [{ label: 'Attendance', href: '/attendance' }] : []),
+    { label: 'Settings', href: '/settings' },
+    { label: 'Feedback', onClick: () => setShowFeedbackForm(true) },
+    { label: 'Sign Out', onClick: handleSignOut }
+  ]
+
   return (
-    <div className="min-h-screen bg-white p-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 p-4 rounded-lg border-2 border-zinc-900 bg-zinc-200">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900">Ghanto ka Hisaab</h1>
-            <p className="text-sm text-zinc-600 mt-1">
-              Logged in as: <span className="font-semibold">{user?.email}</span>
-            </p>
+    <div className="min-h-screen bg-white">
+      <StaggeredMenu items={menuItems} position="left" />
+      
+      <main className="p-4 pt-20 md:p-8 md:pt-20">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900">Ghanto ka Hisaab</h1>
+              <p className="text-sm text-zinc-600 mt-1">
+                {user?.email}
+              </p>
+            </div>
+            {isOffline && (
+              <span className="px-3 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded-full border border-yellow-300">
+                Offline
+              </span>
+            )}
           </div>
-          <div className="flex flex-row gap-2">
-            <button
-              onClick={() => setShowFeedbackForm(true)}
-              className="px-4 py-2 rounded-lg border-2 border-zinc-900 bg-white font-semibold text-zinc-900 hover:bg-zinc-100 transition-all shadow-[4px_4px_0_0_#323232]"
-            >
-              Feedback
-            </button>
-            <button
-              onClick={handleSignOut}
-              className="px-4 py-2 rounded-lg border-2 border-zinc-900 bg-white font-semibold text-zinc-900 hover:bg-zinc-100 transition-all shadow-[4px_4px_0_0_#323232]"
-            >
-              Sign Out
-            </button>
-          </div>
-        </div>
 
         {/* Month Navigation */}
         <div className="grid grid-cols-3 items-center gap-4 mb-6 p-4 rounded-lg border-2 border-zinc-900 bg-zinc-100">
@@ -249,7 +441,7 @@ export default function Home() {
         {/* Feedback Info Section */}
         <div className="p-6 rounded-lg border-2 border-zinc-900 bg-gradient-to-br from-zinc-100 to-zinc-200 shadow-[4px_4px_0_0_#323232] mb-8">
           <h2 className="text-xl font-bold text-zinc-900 mb-2">
-            We'd Love to Hear From You!
+            We&apos;d Love to Hear From You!
           </h2>
           <p className="text-sm text-zinc-600 mb-4">
             Have feedback or ideas for new features? Share your thoughts using the Feedback button above. Your input helps us make this app better for everyone.
@@ -269,7 +461,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold text-zinc-900 mb-2">
-                It's Open Source! 🚀
+                It&apos;s Open Source! 🚀
               </h2>
               <p className="text-sm text-zinc-600">
                 This project is open source. Contribute, report issues, or star the repo to show your support!
@@ -288,7 +480,8 @@ export default function Home() {
             </a>
           </div>
         </div>
-      </div>
+        </div>
+      </main>
 
       {/* Hour Tracker Modal */}
       {selectedDate && (
@@ -304,6 +497,9 @@ export default function Home() {
       {showFeedbackForm && (
         <FeedbackForm onClose={() => setShowFeedbackForm(false)} />
       )}
+      
+      {/* Offline Sync Manager */}
+      <OfflineSyncManager userId={user?.id} onSyncComplete={handleSyncComplete} />
     </div>
   )
 }

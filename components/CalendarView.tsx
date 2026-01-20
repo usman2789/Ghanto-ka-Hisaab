@@ -16,8 +16,12 @@ export default function CalendarView({ year, month, entries, onDateClick }: Cale
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
   const emptyDays = Array.from({ length: firstDayOfMonth }, (_, i) => i)
 
+  // Use local date format to avoid timezone shifts
   const getDateKey = (day: number) => {
-    return new Date(year, month, day).toISOString().split('T')[0]
+    const y = year
+    const m = String(month + 1).padStart(2, '0')
+    const d = String(day).padStart(2, '0')
+    return `${y}-${m}-${d}`
   }
 
   const getProgressColor = (count: number) => {

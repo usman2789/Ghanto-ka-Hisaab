@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { isOnline } from '@/utils/offlineSync'
 
 interface HourTrackerProps {
   date: Date
@@ -30,6 +31,22 @@ export default function HourTracker({ date, entries, onSave, onClose }: HourTrac
   const [customTag, setCustomTag] = useState('')
   const [details, setDetails] = useState('')
   const [saving, setSaving] = useState(false)
+  const [isOffline, setIsOffline] = useState(false)
+
+  useEffect(() => {
+    setIsOffline(!isOnline())
+    
+    const handleOnline = () => setIsOffline(false)
+    const handleOffline = () => setIsOffline(true)
+    
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   const handleHourClick = (hour: number) => {
     setSelectedHour(hour)
@@ -67,9 +84,19 @@ export default function HourTracker({ date, entries, onSave, onClose }: HourTrac
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-6xl max-h-[90vh] overflow-hidden rounded-lg border-2 border-zinc-900 bg-white shadow-[4px_4px_0_0_#323232]">
         <div className="flex items-center justify-between border-b-2 border-zinc-900 bg-zinc-200 p-3 sm:p-4">
-          <h2 className="text-base sm:text-xl font-bold text-zinc-900 truncate pr-2">
-            {date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-base sm:text-xl font-bold text-zinc-900 truncate pr-2">
+              {date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+            </h2>
+            {isOffline && (
+              <span className="px-2 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded-full border border-yellow-300 flex items-center gap-1">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3" />
+                </svg>
+                Offline
+              </span>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="text-2xl font-bold text-zinc-900 hover:text-red-600 flex-shrink-0"
@@ -197,7 +224,7 @@ export default function HourTracker({ date, entries, onSave, onClose }: HourTrac
                   disabled={saving || selectedTags.length === 0}
                   className="w-full py-3 rounded-lg border-2 border-zinc-900 bg-zinc-900 text-white font-bold hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {saving ? 'Saving...' : 'Save Entry'}
+                  {saving ? 'Saving...' : isOffline ? 'Save Locally (Will Sync Later)' : 'Save Entry'}
                 </button>
               </div>
             ) : (

@@ -1,8 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 export default function PWALifecycleManager() {
+  const hasPrompted = useRef(false);
+  const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
+
   useEffect(() => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       // Register service worker
@@ -10,11 +13,12 @@ export default function PWALifecycleManager() {
         .register('/sw.js')
         .then((registration) => {
           console.log('Service Worker registered:', registration);
+          registrationRef.current = registration;
 
-          // Check for updates periodically
-          setInterval(() => {
+          // Check for updates less frequently (every 5 minutes)
+          const updateInterval = setInterval(() => {
             registration.update();
-          }, 60000); // Check every minute
+          }, 300000); // Check every 5 minutes
 
           // Handle updates
           registration.addEventListener('updatefound', () => {
@@ -25,31 +29,35 @@ export default function PWALifecycleManager() {
               newWorker.addEventListener('statechange', () => {
                 console.log('Service worker state:', newWorker.state);
                 
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  // New service worker available
+                if (
+                  newWorker.state === 'installed' && 
+                  navigator.serviceWorker.controller &&
+                  !hasPrompted.current
+                ) {
+                  // New service worker available - only prompt once
+                  hasPrompted.current = true;
                   console.log('New content is available; please refresh.');
                   
-                  // Optionally auto-reload after a delay
-                  setTimeout(() => {
-                    if (confirm('New version available! Reload to update?')) {
-                      newWorker.postMessage({ type: 'SKIP_WAITING' });
-                      window.location.reload();
-                    }
-                  }, 1000);
+                  // Show a non-blocking notification instead of confirm
+                  // User can refresh manually when ready
                 }
               });
             }
           });
+
+          return () => clearInterval(updateInterval);
         })
         .catch((error) => {
           console.error('Service Worker registration failed:', error);
         });
 
-      // Handle service worker controller change
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
+      // Handle service worker controller change - but don't auto-reload
+      const handleControllerChange = () => {
         console.log('Service worker controller changed');
-        window.location.reload();
-      });
+        // Don't auto-reload - let user decide
+      };
+      
+      navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
 
       // Log current service worker state
       if (navigator.serviceWorker.controller) {
@@ -57,6 +65,10 @@ export default function PWALifecycleManager() {
       } else {
         console.log('No service worker controlling the page');
       }
+
+      return () => {
+        navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
+      };
     }
   }, []);
 

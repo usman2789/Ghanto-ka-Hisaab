@@ -44,7 +44,7 @@ export default function FeedbackForm({ onClose }: FeedbackFormProps) {
         setResult('Error submitting form')
         setIsSubmitting(false)
       }
-    } catch (error) {
+    } catch {
       setResult('Error submitting form')
       setIsSubmitting(false)
     }
@@ -155,7 +155,7 @@ export default function FeedbackForm({ onClose }: FeedbackFormProps) {
           {/* Open Source Section */}
           <div className="mt-8 pt-6 border-t-2 border-zinc-900">
             <h3 className="text-lg font-bold text-zinc-900 mb-2">
-              It's Open Source!
+              Its Open Source!
             </h3>
             <p className="text-sm text-zinc-600 mb-3">
               This project is open source. Feel free to contribute, report issues, or suggest improvements.
