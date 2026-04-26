@@ -126,14 +126,14 @@ export default function SettingsPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between p-4 bg-zinc-100 rounded-lg border-2 border-zinc-900">
                 <div>
-                  <p className="font-semibold text-zinc-900">Pending Sync Entries</p>
-                  <p className="text-sm text-zinc-600">Data waiting to be synced</p>
+                  <p className="font-semibold text-zinc-900">Pending Sync Changes</p>
+                  <p className="text-sm text-zinc-600">Offline updates waiting to be synced</p>
                 </div>
                 <span className="text-2xl font-bold text-zinc-900">{pendingCount}</span>
               </div>
               
               <p className="text-sm text-zinc-600">
-                When you add or update hours while offline, they are stored locally and will automatically sync when you&apos;re back online.
+                When you add or update hours or saved tags while offline, they are stored locally and will automatically sync when you&apos;re back online.
               </p>
 
               {pendingCount > 0 && (

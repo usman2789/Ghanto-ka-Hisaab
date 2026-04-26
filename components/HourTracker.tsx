@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { isOnline } from '@/utils/offlineSync'
 
 interface HourTrackerProps {
@@ -9,6 +9,7 @@ interface HourTrackerProps {
   onSave: (hour: number, tags: string[], details?: string) => Promise<void>
   userPredefinedTags: string[]
   onAddUserPredefinedTag: (tag: string) => Promise<void>
+  onDeleteUserPredefinedTag: (tag: string) => Promise<void>
   onClose: () => void
 }
 
@@ -36,15 +37,21 @@ export default function HourTracker({
   onSave,
   userPredefinedTags,
   onAddUserPredefinedTag,
+  onDeleteUserPredefinedTag,
   onClose
 }: HourTrackerProps) {
   const [selectedHour, setSelectedHour] = useState<number | null>(null)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [customTag, setCustomTag] = useState('')
+  const [oneTimeCustomTag, setOneTimeCustomTag] = useState('')
+  const [predefinedCustomTag, setPredefinedCustomTag] = useState('')
   const [details, setDetails] = useState('')
   const [saving, setSaving] = useState(false)
   const [isOffline, setIsOffline] = useState(false)
-  const [addingCustomTag, setAddingCustomTag] = useState(false)
+  const [addingPredefinedTag, setAddingPredefinedTag] = useState(false)
+  const [deletingTag, setDeletingTag] = useState<string | null>(null)
+  const [isManagingSavedTags, setIsManagingSavedTags] = useState(false)
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const longPressTriggeredRef = useRef(false)
 
   useEffect(() => {
     setIsOffline(!isOnline())
@@ -61,6 +68,14 @@ export default function HourTracker({
     }
   }, [])
 
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current)
+      }
+    }
+  }, [])
+
   const handleHourClick = (hour: number) => {
     setSelectedHour(hour)
     const entry = entries[hour]
@@ -74,8 +89,8 @@ export default function HourTracker({
     )
   }
 
-  const addCustomTag = async () => {
-    const normalizedTag = normalizeTag(customTag)
+  const addOneTimeCustomTag = () => {
+    const normalizedTag = normalizeTag(oneTimeCustomTag)
 
     if (!normalizedTag) {
       return
@@ -85,12 +100,63 @@ export default function HourTracker({
       setSelectedTags((prev) => [...prev, normalizedTag])
     }
 
-    setAddingCustomTag(true)
+    setOneTimeCustomTag('')
+  }
+
+  const addPredefinedCustomTag = async () => {
+    const normalizedTag = normalizeTag(predefinedCustomTag)
+
+    if (!normalizedTag) {
+      return
+    }
+
+    if (!hasTag(selectedTags, normalizedTag)) {
+      setSelectedTags((prev) => [...prev, normalizedTag])
+    }
+
+    setAddingPredefinedTag(true)
     try {
       await onAddUserPredefinedTag(normalizedTag)
-      setCustomTag('')
+      setPredefinedCustomTag('')
     } finally {
-      setAddingCustomTag(false)
+      setAddingPredefinedTag(false)
+    }
+  }
+
+  const startLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+    }
+
+    longPressTriggeredRef.current = false
+    longPressTimerRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true
+      setIsManagingSavedTags(true)
+    }, 500)
+  }
+
+  const clearLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+  }
+
+  const handleSavedTagClick = (tag: string) => {
+    if (longPressTriggeredRef.current || isManagingSavedTags) {
+      longPressTriggeredRef.current = false
+      return
+    }
+
+    toggleTag(tag)
+  }
+
+  const handleDeleteSavedTag = async (tag: string) => {
+    setDeletingTag(tag)
+    try {
+      await onDeleteUserPredefinedTag(tag)
+    } finally {
+      setDeletingTag(null)
     }
   }
 
@@ -193,47 +259,108 @@ export default function HourTracker({
                 </div>
 
                 <div className="space-y-2">
-                  <p className="text-sm font-semibold text-zinc-600">Add Custom Tag:</p>
+                  <p className="text-sm font-semibold text-zinc-600">One Time Custome Tag:</p>
                   <div className="flex gap-2">
                     <input
                       type="text"
-                      value={customTag}
-                      onChange={(e) => setCustomTag(e.target.value)}
+                      value={oneTimeCustomTag}
+                      onChange={(e) => setOneTimeCustomTag(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault()
-                          void addCustomTag()
+                          addOneTimeCustomTag()
                         }
                       }}
-                      placeholder="Enter custom tag"
+                      placeholder="Enter one-time tag"
                       className="flex-1 h-10 rounded-lg border-2 border-zinc-900 bg-white px-3 text-sm font-medium text-zinc-900 outline-none"
                     />
                     <button
-                      onClick={() => void addCustomTag()}
-                      disabled={addingCustomTag}
+                      onClick={addOneTimeCustomTag}
+                      className="px-4 py-2 rounded-lg border-2 border-zinc-900 bg-white font-semibold text-zinc-900 hover:bg-zinc-100"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-zinc-600">Add a Predefined Custom Tag:</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={predefinedCustomTag}
+                      onChange={(e) => setPredefinedCustomTag(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          void addPredefinedCustomTag()
+                        }
+                      }}
+                      placeholder="Enter reusable tag"
+                      className="flex-1 h-10 rounded-lg border-2 border-zinc-900 bg-white px-3 text-sm font-medium text-zinc-900 outline-none"
+                    />
+                    <button
+                      onClick={() => void addPredefinedCustomTag()}
+                      disabled={addingPredefinedTag}
                       className="px-4 py-2 rounded-lg border-2 border-zinc-900 bg-white font-semibold text-zinc-900 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {addingCustomTag ? 'Adding...' : 'Add'}
+                      {addingPredefinedTag ? 'Saving...' : 'Save Tag'}
                     </button>
                   </div>
                 </div>
 
                 {userPredefinedTags.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-sm font-semibold text-zinc-600">Your Saved Tags:</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-zinc-600">Your Saved Tags:</p>
+                      {isManagingSavedTags ? (
+                        <button
+                          onClick={() => setIsManagingSavedTags(false)}
+                          className="text-xs font-semibold text-zinc-700 hover:text-zinc-900"
+                        >
+                          Done
+                        </button>
+                      ) : (
+                        <p className="text-xs text-zinc-500">Long press a tag to delete it</p>
+                      )}
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       {userPredefinedTags.map(tag => (
-                        <button
+                        <div
                           key={tag}
-                          onClick={() => toggleTag(tag)}
-                          className={`px-4 py-2 rounded-lg border-2 border-zinc-900 font-medium transition-all ${
-                            selectedTags.includes(tag)
-                              ? 'bg-zinc-900 text-white'
-                              : 'bg-white text-zinc-900 hover:bg-zinc-100'
-                          }`}
+                          className="relative"
                         >
-                          {tag}
-                        </button>
+                          <button
+                            onClick={() => handleSavedTagClick(tag)}
+                            onMouseDown={startLongPress}
+                            onMouseUp={clearLongPress}
+                            onMouseLeave={clearLongPress}
+                            onTouchStart={startLongPress}
+                            onTouchEnd={clearLongPress}
+                            onTouchCancel={clearLongPress}
+                            className={`px-4 py-2 rounded-lg border-2 border-zinc-900 font-medium transition-all ${
+                              selectedTags.includes(tag)
+                                ? 'bg-zinc-900 text-white'
+                                : 'bg-white text-zinc-900 hover:bg-zinc-100'
+                            } ${isManagingSavedTags ? 'pr-8' : ''}`}
+                          >
+                            {tag}
+                          </button>
+
+                          {isManagingSavedTags && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                void handleDeleteSavedTag(tag)
+                              }}
+                              disabled={deletingTag === tag}
+                              className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full border-2 border-zinc-900 bg-red-500 text-sm font-bold text-white shadow-[2px_2px_0_0_#323232] disabled:cursor-not-allowed disabled:opacity-60"
+                              aria-label={`Delete ${tag}`}
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
                       ))}
                     </div>
                   </div>

@@ -3,22 +3,30 @@
 import { createClient } from '@/utils/supabase/client'
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { User } from '@supabase/supabase-js'
 import CalendarView from '@/components/CalendarView'
-import HourTracker from '@/components/HourTracker'
 import Loader from '@/components/Loader'
-import FeedbackForm from '@/components/FeedbackForm'
-import StaggeredMenu from '@/components/StaggeredMenu'
-import OfflineSyncManager from '@/components/OfflineSyncManager'
 import {
   initDB,
   isOnline,
   addPendingEntry,
+  addPendingUserTagAction,
   cacheSingleEntry,
   cacheHourEntries,
+  cacheSingleUserPredefinedTag,
+  cacheUserPredefinedTags,
+  clearCachedUserPredefinedTags,
   getMergedEntriesForDate,
-  getMergedMonthEntries
+  getMergedMonthEntries,
+  getMergedUserPredefinedTags,
+  removeCachedUserPredefinedTag
 } from '@/utils/offlineSync'
+
+const HourTracker = dynamic(() => import('@/components/HourTracker'))
+const FeedbackForm = dynamic(() => import('@/components/FeedbackForm'))
+const OfflineSyncManager = dynamic(() => import('@/components/OfflineSyncManager'), { ssr: false })
+const StaggeredMenu = dynamic(() => import('@/components/StaggeredMenu'), { ssr: false })
 
 interface HourEntry {
   hour: number
@@ -27,6 +35,7 @@ interface HourEntry {
 }
 
 interface UserPredefinedTagRow {
+  user_id: string
   tag: string
 }
 
@@ -71,15 +80,33 @@ export default function Home() {
   const loadUserPredefinedTags = useCallback(async () => {
     if (!user) return
 
-    if (!isOnline()) return
+    if (!isOnline()) {
+      try {
+        const offlineTags = await getMergedUserPredefinedTags(user.id)
+        setUserPredefinedTags(mergeUniqueTags(offlineTags))
+      } catch (e) {
+        console.error('Error loading offline saved tags:', e)
+      }
+      return
+    }
 
     const { data, error } = await supabase
       .from('user_predefined_tags')
-      .select('tag')
+      .select('user_id, tag')
       .order('created_at', { ascending: true })
 
     if (!error && data) {
-      setUserPredefinedTags(mergeUniqueTags((data as UserPredefinedTagRow[]).map((row) => row.tag)))
+      const rows = data as UserPredefinedTagRow[]
+
+      try {
+        await clearCachedUserPredefinedTags(user.id)
+        await cacheUserPredefinedTags(rows)
+      } catch (e) {
+        console.error('Error caching saved tags:', e)
+      }
+
+      const mergedTags = await getMergedUserPredefinedTags(user.id)
+      setUserPredefinedTags(mergeUniqueTags(mergedTags))
     }
   }, [user, supabase])
 
@@ -143,18 +170,55 @@ export default function Home() {
   }, [currentYear, currentMonth, user, supabase])
 
   useEffect(() => {
+    let isMounted = true
+
     const init = async () => {
-      // Initialize offline DB
+      const sessionPromise = supabase.auth.getSession()
       await initDB()
-      
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
+
+      const {
+        data: { session }
+      } = await sessionPromise
+
+      if (!isMounted) return
+
+      setUser(session?.user ?? null)
       setLoading(false)
+
+      if (isOnline()) {
+        try {
+          const {
+            data: { user: freshUser }
+          } = await supabase.auth.getUser()
+
+          if (isMounted && freshUser) {
+            setUser(freshUser)
+          }
+        } catch (error) {
+          console.error('Error refreshing user session:', error)
+        }
+      }
     }
+
     init()
 
     // Listen for online/offline events
-    const handleOnline = () => setIsOffline(false)
+    const handleOnline = async () => {
+      setIsOffline(false)
+
+      try {
+        const {
+          data: { user: freshUser }
+        } = await supabase.auth.getUser()
+
+        if (isMounted) {
+          setUser(freshUser ?? null)
+        }
+      } catch (error) {
+        console.error('Error refreshing user on reconnect:', error)
+      }
+    }
+
     const handleOffline = () => setIsOffline(true)
     
     // Initialize offline state
@@ -166,20 +230,17 @@ export default function Home() {
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
 
-    // Register service worker
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-          .then((registration) => {
-            console.log('SW registered:', registration)
-          })
-          .catch((error) => {
-            console.log('SW registration failed:', error)
-          })
-      })
-    }
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (isMounted) {
+        setUser(session?.user ?? null)
+      }
+    })
     
     return () => {
+      isMounted = false
+      subscription.unsubscribe()
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
     }
@@ -193,7 +254,13 @@ export default function Home() {
     } else {
       setUserPredefinedTags([])
     }
-  }, [user, currentYear, currentMonth, loadMonthEntries, loadUserPredefinedTags])
+  }, [user, currentYear, currentMonth, isOffline, loadMonthEntries, loadUserPredefinedTags])
+
+  useEffect(() => {
+    if (!loading && !user && !isOffline) {
+      router.replace('/login')
+    }
+  }, [loading, user, isOffline, router])
 
   // Helper to format date in local timezone
   const formatLocalDate = (date: Date): string => {
@@ -314,8 +381,7 @@ export default function Home() {
         const cacheKey = `${currentYear}-${currentMonth}`
         delete monthCache[cacheKey]
         
-        await loadDayEntries(selectedDate)
-        await loadMonthEntries()
+        await Promise.all([loadDayEntries(selectedDate), loadMonthEntries()])
         return
       } catch (e) {
         console.error('Error saving offline:', e)
@@ -355,8 +421,7 @@ export default function Home() {
       const cacheKey = `${currentYear}-${currentMonth}`
       delete monthCache[cacheKey]
       
-      await loadDayEntries(selectedDate)
-      await loadMonthEntries()
+      await Promise.all([loadDayEntries(selectedDate), loadMonthEntries()])
     }
   }
 
@@ -368,7 +433,21 @@ export default function Home() {
 
     setUserPredefinedTags((prev) => mergeUniqueTags([...prev, normalizedTag]))
 
+    try {
+      await cacheSingleUserPredefinedTag({
+        user_id: user.id,
+        tag: normalizedTag
+      })
+    } catch (e) {
+      console.error('Error caching saved tag:', e)
+    }
+
     if (!isOnline()) {
+      try {
+        await addPendingUserTagAction(normalizedTag, user.id, 'upsert')
+      } catch (e) {
+        console.error('Error queueing saved tag:', e)
+      }
       return
     }
 
@@ -386,6 +465,43 @@ export default function Home() {
 
     if (error) {
       console.error('Error saving user predefined tag:', error)
+      await loadUserPredefinedTags()
+    }
+  }
+
+  const handleDeleteUserPredefinedTag = async (tag: string) => {
+    if (!user) return
+
+    const normalizedTag = normalizeTag(tag)
+    if (!normalizedTag) return
+
+    setUserPredefinedTags((prev) =>
+      prev.filter((savedTag) => savedTag.toLowerCase() !== normalizedTag.toLowerCase())
+    )
+
+    try {
+      await removeCachedUserPredefinedTag(user.id, normalizedTag)
+    } catch (e) {
+      console.error('Error removing cached saved tag:', e)
+    }
+
+    if (!isOnline()) {
+      try {
+        await addPendingUserTagAction(normalizedTag, user.id, 'delete')
+      } catch (e) {
+        console.error('Error queueing saved tag deletion:', e)
+      }
+      return
+    }
+
+    const { error } = await supabase
+      .from('user_predefined_tags')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('tag', normalizedTag)
+
+    if (error) {
+      console.error('Error deleting user predefined tag:', error)
       await loadUserPredefinedTags()
     }
   }
@@ -416,15 +532,29 @@ export default function Home() {
     // Invalidate all month caches
     Object.keys(monthCache).forEach(key => delete monthCache[key])
     loadMonthEntries()
+    loadUserPredefinedTags()
     if (selectedDate) {
       loadDayEntries(selectedDate)
     }
-  }, [loadMonthEntries, selectedDate, loadDayEntries])
+  }, [loadMonthEntries, loadUserPredefinedTags, selectedDate, loadDayEntries])
 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-white">
         <Loader />
+      </div>
+    )
+  }
+
+  if (!user && isOffline) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white p-6">
+        <div className="max-w-md rounded-lg border-2 border-zinc-900 bg-white p-6 text-center shadow-[4px_4px_0_0_#323232]">
+          <h1 className="text-2xl font-bold text-zinc-900">Offline Login Required</h1>
+          <p className="mt-3 text-sm text-zinc-600">
+            Open the app once while online so your session can be stored on this device, then it will launch offline with your cached data.
+          </p>
+        </div>
       </div>
     )
   }
@@ -565,6 +695,7 @@ export default function Home() {
           onSave={handleSaveHour}
           userPredefinedTags={userPredefinedTags}
           onAddUserPredefinedTag={handleAddUserPredefinedTag}
+          onDeleteUserPredefinedTag={handleDeleteUserPredefinedTag}
           onClose={() => setSelectedDate(null)}
         />
       )}

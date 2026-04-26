@@ -3,9 +3,11 @@
 // Offline sync utility using IndexedDB for storing hour entries when offline
 
 const DB_NAME = 'ghanto-hisaab-offline'
-const DB_VERSION = 1
+const DB_VERSION = 2
 const STORE_NAME = 'pending_entries'
 const HOUR_ENTRIES_STORE = 'hour_entries_cache'
+const USER_TAGS_STORE = 'user_predefined_tags_cache'
+const PENDING_USER_TAG_ACTIONS_STORE = 'pending_user_tag_actions'
 
 interface PendingEntry {
   id: string
@@ -27,7 +29,29 @@ interface CachedHourEntry {
   user_id: string
 }
 
+interface PendingUserTagAction {
+  id: string
+  user_id: string
+  tag: string
+  timestamp: number
+  action: 'upsert' | 'delete'
+}
+
+interface CachedUserPredefinedTag {
+  id: string
+  user_id: string
+  tag: string
+}
+
 let db: IDBDatabase | null = null
+
+function normalizeTag(tag: string): string {
+  return tag.trim().replace(/\s+/g, ' ')
+}
+
+function getCachedUserTagId(userId: string, tag: string): string {
+  return `${userId}:${normalizeTag(tag).toLowerCase()}`
+}
 
 // Initialize IndexedDB
 export async function initDB(): Promise<IDBDatabase> {
@@ -57,6 +81,19 @@ export async function initDB(): Promise<IDBDatabase> {
         const cacheStore = database.createObjectStore(HOUR_ENTRIES_STORE, { keyPath: 'id' })
         cacheStore.createIndex('date', 'date', { unique: false })
         cacheStore.createIndex('user_date_hour', ['user_id', 'date', 'hour'], { unique: true })
+      }
+
+      // Store for cached user predefined tags
+      if (!database.objectStoreNames.contains(USER_TAGS_STORE)) {
+        const tagStore = database.createObjectStore(USER_TAGS_STORE, { keyPath: 'id' })
+        tagStore.createIndex('user_id', 'user_id', { unique: false })
+      }
+
+      // Store for pending user predefined tag actions
+      if (!database.objectStoreNames.contains(PENDING_USER_TAG_ACTIONS_STORE)) {
+        const pendingTagStore = database.createObjectStore(PENDING_USER_TAG_ACTIONS_STORE, { keyPath: 'id' })
+        pendingTagStore.createIndex('timestamp', 'timestamp', { unique: false })
+        pendingTagStore.createIndex('user_id', 'user_id', { unique: false })
       }
     }
   })
@@ -136,12 +173,12 @@ export async function clearPendingEntries(): Promise<void> {
   const database = await initDB()
 
   return new Promise((resolve, reject) => {
-    const transaction = database.transaction([STORE_NAME], 'readwrite')
-    const store = transaction.objectStore(STORE_NAME)
-    const request = store.clear()
+    const transaction = database.transaction([STORE_NAME, PENDING_USER_TAG_ACTIONS_STORE], 'readwrite')
+    transaction.objectStore(STORE_NAME).clear()
+    transaction.objectStore(PENDING_USER_TAG_ACTIONS_STORE).clear()
 
-    request.onsuccess = () => resolve()
-    request.onerror = () => reject(request.error)
+    transaction.oncomplete = () => resolve()
+    transaction.onerror = () => reject(transaction.error)
   })
 }
 
@@ -205,10 +242,160 @@ export async function getAllCachedEntries(): Promise<CachedHourEntry[]> {
   })
 }
 
+// Cache user predefined tags for offline use
+export async function cacheUserPredefinedTags(
+  tags: Array<{ user_id: string; tag: string }>
+): Promise<void> {
+  const database = await initDB()
+
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction([USER_TAGS_STORE], 'readwrite')
+    const store = transaction.objectStore(USER_TAGS_STORE)
+
+    tags.forEach((tag) => {
+      const normalizedTag = normalizeTag(tag.tag)
+      if (!normalizedTag) return
+
+      store.put({
+        id: getCachedUserTagId(tag.user_id, normalizedTag),
+        user_id: tag.user_id,
+        tag: normalizedTag
+      })
+    })
+
+    transaction.oncomplete = () => resolve()
+    transaction.onerror = () => reject(transaction.error)
+  })
+}
+
+export async function cacheSingleUserPredefinedTag(tag: {
+  user_id: string
+  tag: string
+}): Promise<void> {
+  const database = await initDB()
+  const normalizedTag = normalizeTag(tag.tag)
+
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction([USER_TAGS_STORE], 'readwrite')
+    const store = transaction.objectStore(USER_TAGS_STORE)
+    const request = store.put({
+      id: getCachedUserTagId(tag.user_id, normalizedTag),
+      user_id: tag.user_id,
+      tag: normalizedTag
+    })
+
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export async function removeCachedUserPredefinedTag(userId: string, tag: string): Promise<void> {
+  const database = await initDB()
+
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction([USER_TAGS_STORE], 'readwrite')
+    const store = transaction.objectStore(USER_TAGS_STORE)
+    const request = store.delete(getCachedUserTagId(userId, tag))
+
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export async function getCachedUserPredefinedTags(userId: string): Promise<CachedUserPredefinedTag[]> {
+  const database = await initDB()
+
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction([USER_TAGS_STORE], 'readonly')
+    const store = transaction.objectStore(USER_TAGS_STORE)
+    const index = store.index('user_id')
+    const request = index.getAll(userId)
+
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export async function clearCachedUserPredefinedTags(userId: string): Promise<void> {
+  const database = await initDB()
+
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction([USER_TAGS_STORE], 'readwrite')
+    const store = transaction.objectStore(USER_TAGS_STORE)
+    const index = store.index('user_id')
+    const request = index.getAllKeys(userId)
+
+    request.onsuccess = () => {
+      request.result.forEach((key) => {
+        store.delete(key)
+      })
+    }
+
+    transaction.oncomplete = () => resolve()
+    transaction.onerror = () => reject(transaction.error)
+  })
+}
+
+export async function addPendingUserTagAction(
+  tag: string,
+  user_id: string,
+  action: 'upsert' | 'delete'
+): Promise<void> {
+  const database = await initDB()
+  const normalizedTag = normalizeTag(tag)
+
+  const entry: PendingUserTagAction = {
+    id: generateId(),
+    user_id,
+    tag: normalizedTag,
+    timestamp: Date.now(),
+    action
+  }
+
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction([PENDING_USER_TAG_ACTIONS_STORE], 'readwrite')
+    const store = transaction.objectStore(PENDING_USER_TAG_ACTIONS_STORE)
+    const request = store.add(entry)
+
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export async function getPendingUserTagActions(): Promise<PendingUserTagAction[]> {
+  const database = await initDB()
+
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction([PENDING_USER_TAG_ACTIONS_STORE], 'readonly')
+    const store = transaction.objectStore(PENDING_USER_TAG_ACTIONS_STORE)
+    const request = store.getAll()
+
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export async function removePendingUserTagAction(id: string): Promise<void> {
+  const database = await initDB()
+
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction([PENDING_USER_TAG_ACTIONS_STORE], 'readwrite')
+    const store = transaction.objectStore(PENDING_USER_TAG_ACTIONS_STORE)
+    const request = store.delete(id)
+
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
 // Get pending entries count
 export async function getPendingCount(): Promise<number> {
-  const entries = await getPendingEntries()
-  return entries.length
+  const [entries, tagActions] = await Promise.all([
+    getPendingEntries(),
+    getPendingUserTagActions()
+  ])
+
+  return entries.length + tagActions.length
 }
 
 // Merge pending entries with cached entries for display
@@ -284,4 +471,35 @@ export async function getMergedMonthEntries(
   })
 
   return result
+}
+
+export async function getMergedUserPredefinedTags(userId: string): Promise<string[]> {
+  const [cachedTags, pendingActions] = await Promise.all([
+    getCachedUserPredefinedTags(userId),
+    getPendingUserTagActions()
+  ])
+
+  const tagsMap = new Map<string, string>()
+
+  cachedTags.forEach((tag) => {
+    const normalizedTag = normalizeTag(tag.tag)
+    if (!normalizedTag) return
+    tagsMap.set(normalizedTag.toLowerCase(), normalizedTag)
+  })
+
+  pendingActions
+    .filter((action) => action.user_id === userId)
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .forEach((action) => {
+      const normalizedTag = normalizeTag(action.tag)
+      const key = normalizedTag.toLowerCase()
+
+      if (action.action === 'delete') {
+        tagsMap.delete(key)
+      } else {
+        tagsMap.set(key, normalizedTag)
+      }
+    })
+
+  return Array.from(tagsMap.values())
 }

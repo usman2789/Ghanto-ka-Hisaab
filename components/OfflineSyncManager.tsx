@@ -5,7 +5,9 @@ import { createClient } from '@/utils/supabase/client'
 import {
   initDB,
   getPendingEntries,
+  getPendingUserTagActions,
   removePendingEntry,
+  removePendingUserTagAction,
   getPendingCount,
   isOnline as checkOnline
 } from '@/utils/offlineSync'
@@ -33,7 +35,7 @@ export default function OfflineSyncManager({ userId, onSyncComplete }: OfflineSy
     }
   }, [])
 
-  // Sync pending entries to Supabase
+  // Sync pending offline changes to Supabase
   const syncPendingEntries = useCallback(async () => {
     if (!userId || syncing || !checkOnline()) return
 
@@ -41,9 +43,12 @@ export default function OfflineSyncManager({ userId, onSyncComplete }: OfflineSy
     setLastSyncStatus(null)
 
     try {
-      const pendingEntries = await getPendingEntries()
+      const [pendingEntries, pendingUserTagActions] = await Promise.all([
+        getPendingEntries(),
+        getPendingUserTagActions()
+      ])
 
-      if (pendingEntries.length === 0) {
+      if (pendingEntries.length === 0 && pendingUserTagActions.length === 0) {
         setSyncing(false)
         return
       }
@@ -76,6 +81,51 @@ export default function OfflineSyncManager({ userId, onSyncComplete }: OfflineSy
           }
         } catch (err) {
           console.error('Error syncing entry:', err)
+          errorCount++
+        }
+      }
+
+      for (const action of pendingUserTagActions) {
+        try {
+          if (action.action === 'upsert') {
+            const { error } = await supabase
+              .from('user_predefined_tags')
+              .upsert(
+                {
+                  user_id: action.user_id,
+                  tag: action.tag
+                },
+                {
+                  onConflict: 'user_id,tag'
+                }
+              )
+
+            if (!error) {
+              await removePendingUserTagAction(action.id)
+              successCount++
+            } else {
+              console.error('Sync error for saved tag:', error)
+              errorCount++
+            }
+          }
+
+          if (action.action === 'delete') {
+            const { error } = await supabase
+              .from('user_predefined_tags')
+              .delete()
+              .eq('user_id', action.user_id)
+              .eq('tag', action.tag)
+
+            if (!error) {
+              await removePendingUserTagAction(action.id)
+              successCount++
+            } else {
+              console.error('Delete sync error for saved tag:', error)
+              errorCount++
+            }
+          }
+        } catch (err) {
+          console.error('Error syncing saved tag:', err)
           errorCount++
         }
       }
@@ -181,11 +231,11 @@ export default function OfflineSyncManager({ userId, onSyncComplete }: OfflineSy
           {!isOnline ? (
             <span>Offline Mode {pendingCount > 0 && `(${pendingCount} pending)`}</span>
           ) : syncing ? (
-            <span>Syncing {pendingCount} entries...</span>
+            <span>Syncing {pendingCount} changes...</span>
           ) : lastSyncStatus === 'success' ? (
             <span>Synced successfully!</span>
           ) : pendingCount > 0 ? (
-            <span>{pendingCount} entries pending sync</span>
+            <span>{pendingCount} changes pending sync</span>
           ) : (
             <span>All synced</span>
           )}

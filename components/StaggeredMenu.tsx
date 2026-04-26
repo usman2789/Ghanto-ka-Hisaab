@@ -40,8 +40,8 @@ export default function StaggeredMenu({
       // Animate overlays in with stagger
       gsap.to(overlayRefs.current, {
         x: 0,
-        duration: 0.5,
-        stagger: 0.1,
+        duration: 0.3,
+        stagger: 0.05,
         ease: 'power3.out'
       })
       // Animate menu items
@@ -49,15 +49,15 @@ export default function StaggeredMenu({
         gsap.fromTo(
           menuItemsRef.current.children,
           { y: 50, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.4, stagger: 0.08, delay: 0.3, ease: 'power2.out' }
+          { y: 0, opacity: 1, duration: 0.24, stagger: 0.05, delay: 0.12, ease: 'power2.out' }
         )
       }
     } else {
       // Animate overlays out
       gsap.to(overlayRefs.current, {
         x: position === 'right' ? '100%' : '-100%',
-        duration: 0.4,
-        stagger: { each: 0.05, from: 'end' },
+        duration: 0.24,
+        stagger: { each: 0.03, from: 'end' },
         ease: 'power3.in'
       })
     }
@@ -149,7 +149,8 @@ export default function StaggeredMenu({
             className={`absolute inset-0 ${position === 'right' ? 'translate-x-full' : '-translate-x-full'}`}
             style={{
               backgroundColor: color,
-              zIndex: 50 + index
+              zIndex: 50 + index,
+              willChange: 'transform'
             }}
           />
         ))}

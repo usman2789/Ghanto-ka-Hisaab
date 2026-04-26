@@ -31,11 +31,10 @@ export async function updateSession(request: NextRequest) {
   // supabase.auth.getUser(). A simple mistake could make it very hard to debug
   // issues with users being randomly logged out.
 
-  let user = null
   try {
     const { data, error } = await supabase.auth.getUser()
     if (!error && data?.user) {
-      user = data.user
+      // Keep the middleware-side session fresh without forcing page redirects.
     } else if (error && error.message?.includes('refresh_token_not_found')) {
       // Clear invalid cookies when refresh token is missing
       supabaseResponse.cookies.delete('sb-access-token')
@@ -47,18 +46,6 @@ export async function updateSession(request: NextRequest) {
     if (!error?.message?.includes('refresh_token_not_found')) {
       console.error('Auth error in middleware:', error)
     }
-  }
-
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith('/login') &&
-    !request.nextUrl.pathname.startsWith('/auth') &&
-    !request.nextUrl.pathname.startsWith('/signup')
-  ) {
-    // no user, potentially respond by redirecting the user to the login page
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
   }
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is. If you're
