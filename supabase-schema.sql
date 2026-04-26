@@ -15,8 +15,21 @@ CREATE TABLE IF NOT EXISTS hour_entries (
 CREATE INDEX IF NOT EXISTS idx_hour_entries_user_date ON hour_entries(user_id, date);
 CREATE INDEX IF NOT EXISTS idx_hour_entries_user_id ON hour_entries(user_id);
 
+-- Create table for storing user-specific reusable tags
+CREATE TABLE IF NOT EXISTS user_predefined_tags (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  tag TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  UNIQUE(user_id, tag)
+);
+
+-- Create indexes for user predefined tags
+CREATE INDEX IF NOT EXISTS idx_user_predefined_tags_user_id ON user_predefined_tags(user_id);
+
 -- Enable Row Level Security (RLS)
 ALTER TABLE hour_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_predefined_tags ENABLE ROW LEVEL SECURITY;
 
 -- Create policy: Users can only see their own entries
 CREATE POLICY "Users can view own hour entries" 
@@ -36,6 +49,23 @@ CREATE POLICY "Users can update own hour entries"
 -- Create policy: Users can delete their own entries
 CREATE POLICY "Users can delete own hour entries" 
   ON hour_entries FOR DELETE 
+  USING (auth.uid() = user_id);
+
+-- Create policies for user predefined tags
+CREATE POLICY "Users can view own predefined tags"
+  ON user_predefined_tags FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own predefined tags"
+  ON user_predefined_tags FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own predefined tags"
+  ON user_predefined_tags FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own predefined tags"
+  ON user_predefined_tags FOR DELETE
   USING (auth.uid() = user_id);
 
 -- Create function to update updated_at timestamp

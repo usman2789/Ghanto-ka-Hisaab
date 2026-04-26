@@ -7,6 +7,8 @@ interface HourTrackerProps {
   date: Date
   entries: { [hour: number]: { tags: string[], details?: string } }
   onSave: (hour: number, tags: string[], details?: string) => Promise<void>
+  userPredefinedTags: string[]
+  onAddUserPredefinedTag: (tag: string) => Promise<void>
   onClose: () => void
 }
 
@@ -17,21 +19,32 @@ const PREDEFINED_TAGS = [
   'Phone Scrolling',
   'With Friends',
   'Fun',
-  'Work',
-  'Exercise',
-  'Meals',
-  'Travel',
-  'Entertainment',
-  'Other'
+  'Work'
 ]
 
-export default function HourTracker({ date, entries, onSave, onClose }: HourTrackerProps) {
+function normalizeTag(tag: string) {
+  return tag.trim().replace(/\s+/g, ' ')
+}
+
+function hasTag(tags: string[], target: string) {
+  return tags.some((tag) => tag.toLowerCase() === target.toLowerCase())
+}
+
+export default function HourTracker({
+  date,
+  entries,
+  onSave,
+  userPredefinedTags,
+  onAddUserPredefinedTag,
+  onClose
+}: HourTrackerProps) {
   const [selectedHour, setSelectedHour] = useState<number | null>(null)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [customTag, setCustomTag] = useState('')
   const [details, setDetails] = useState('')
   const [saving, setSaving] = useState(false)
   const [isOffline, setIsOffline] = useState(false)
+  const [addingCustomTag, setAddingCustomTag] = useState(false)
 
   useEffect(() => {
     setIsOffline(!isOnline())
@@ -61,10 +74,23 @@ export default function HourTracker({ date, entries, onSave, onClose }: HourTrac
     )
   }
 
-  const addCustomTag = () => {
-    if (customTag.trim() && !selectedTags.includes(customTag.trim())) {
-      setSelectedTags([...selectedTags, customTag.trim()])
+  const addCustomTag = async () => {
+    const normalizedTag = normalizeTag(customTag)
+
+    if (!normalizedTag) {
+      return
+    }
+
+    if (!hasTag(selectedTags, normalizedTag)) {
+      setSelectedTags((prev) => [...prev, normalizedTag])
+    }
+
+    setAddingCustomTag(true)
+    try {
+      await onAddUserPredefinedTag(normalizedTag)
       setCustomTag('')
+    } finally {
+      setAddingCustomTag(false)
     }
   }
 
@@ -173,18 +199,45 @@ export default function HourTracker({ date, entries, onSave, onClose }: HourTrac
                       type="text"
                       value={customTag}
                       onChange={(e) => setCustomTag(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && addCustomTag()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          void addCustomTag()
+                        }
+                      }}
                       placeholder="Enter custom tag"
                       className="flex-1 h-10 rounded-lg border-2 border-zinc-900 bg-white px-3 text-sm font-medium text-zinc-900 outline-none"
                     />
                     <button
-                      onClick={addCustomTag}
-                      className="px-4 py-2 rounded-lg border-2 border-zinc-900 bg-white font-semibold text-zinc-900 hover:bg-zinc-100"
+                      onClick={() => void addCustomTag()}
+                      disabled={addingCustomTag}
+                      className="px-4 py-2 rounded-lg border-2 border-zinc-900 bg-white font-semibold text-zinc-900 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      Add
+                      {addingCustomTag ? 'Adding...' : 'Add'}
                     </button>
                   </div>
                 </div>
+
+                {userPredefinedTags.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-zinc-600">Your Saved Tags:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {userPredefinedTags.map(tag => (
+                        <button
+                          key={tag}
+                          onClick={() => toggleTag(tag)}
+                          className={`px-4 py-2 rounded-lg border-2 border-zinc-900 font-medium transition-all ${
+                            selectedTags.includes(tag)
+                              ? 'bg-zinc-900 text-white'
+                              : 'bg-white text-zinc-900 hover:bg-zinc-100'
+                          }`}
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {selectedTags.length > 0 && (
                   <div className="space-y-2">

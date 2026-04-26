@@ -26,6 +26,10 @@ interface HourEntry {
   details?: string
 }
 
+interface UserPredefinedTagRow {
+  tag: string
+}
+
 // Cache to persist month data
 const monthCache: { [key: string]: { [date: string]: number } } = {}
 
@@ -37,10 +41,47 @@ export default function Home() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [monthEntries, setMonthEntries] = useState<{ [date: string]: number }>({})
   const [dayEntries, setDayEntries] = useState<{ [hour: number]: HourEntry }>({})
+  const [userPredefinedTags, setUserPredefinedTags] = useState<string[]>([])
   const [showFeedbackForm, setShowFeedbackForm] = useState(false)
   const [isOffline, setIsOffline] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+
+  const normalizeTag = (tag: string) => tag.trim().replace(/\s+/g, ' ')
+
+  const mergeUniqueTags = (tags: string[]) => {
+    const uniqueTags: string[] = []
+
+    tags.forEach((tag) => {
+      const normalizedTag = normalizeTag(tag)
+      if (!normalizedTag) return
+
+      const exists = uniqueTags.some(
+        (existingTag) => existingTag.toLowerCase() === normalizedTag.toLowerCase()
+      )
+
+      if (!exists) {
+        uniqueTags.push(normalizedTag)
+      }
+    })
+
+    return uniqueTags
+  }
+
+  const loadUserPredefinedTags = useCallback(async () => {
+    if (!user) return
+
+    if (!isOnline()) return
+
+    const { data, error } = await supabase
+      .from('user_predefined_tags')
+      .select('tag')
+      .order('created_at', { ascending: true })
+
+    if (!error && data) {
+      setUserPredefinedTags(mergeUniqueTags((data as UserPredefinedTagRow[]).map((row) => row.tag)))
+    }
+  }, [user, supabase])
 
   // Load month entries - now supports offline data
   const loadMonthEntries = useCallback(async () => {
@@ -148,8 +189,11 @@ export default function Home() {
   useEffect(() => {
     if (user) {
       loadMonthEntries()
+      loadUserPredefinedTags()
+    } else {
+      setUserPredefinedTags([])
     }
-  }, [user, currentYear, currentMonth, loadMonthEntries])
+  }, [user, currentYear, currentMonth, loadMonthEntries, loadUserPredefinedTags])
 
   // Helper to format date in local timezone
   const formatLocalDate = (date: Date): string => {
@@ -313,6 +357,36 @@ export default function Home() {
       
       await loadDayEntries(selectedDate)
       await loadMonthEntries()
+    }
+  }
+
+  const handleAddUserPredefinedTag = async (tag: string) => {
+    if (!user) return
+
+    const normalizedTag = normalizeTag(tag)
+    if (!normalizedTag) return
+
+    setUserPredefinedTags((prev) => mergeUniqueTags([...prev, normalizedTag]))
+
+    if (!isOnline()) {
+      return
+    }
+
+    const { error } = await supabase
+      .from('user_predefined_tags')
+      .upsert(
+        {
+          user_id: user.id,
+          tag: normalizedTag
+        },
+        {
+          onConflict: 'user_id,tag'
+        }
+      )
+
+    if (error) {
+      console.error('Error saving user predefined tag:', error)
+      await loadUserPredefinedTags()
     }
   }
 
@@ -489,6 +563,8 @@ export default function Home() {
           date={selectedDate}
           entries={dayEntries}
           onSave={handleSaveHour}
+          userPredefinedTags={userPredefinedTags}
+          onAddUserPredefinedTag={handleAddUserPredefinedTag}
           onClose={() => setSelectedDate(null)}
         />
       )}
