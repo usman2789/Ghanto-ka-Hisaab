@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/client'
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { User } from '@supabase/supabase-js'
 import CalendarView from '@/components/CalendarView'
 import Loader from '@/components/Loader'
@@ -23,7 +24,7 @@ interface TrackerEntry {
 
 const monthCache: { [key: string]: { [date: string]: number } } = {}
 
-export default function TrackerNewPage() {
+function TrackerNewPage() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -383,6 +384,8 @@ export default function TrackerNewPage() {
     </div>
   )
 }
+
+export default dynamic(() => Promise.resolve(TrackerNewPage), { ssr: false })
 
 function TrackerItemCard({
   item,

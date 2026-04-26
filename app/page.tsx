@@ -42,7 +42,7 @@ interface UserPredefinedTagRow {
 // Cache to persist month data
 const monthCache: { [key: string]: { [date: string]: number } } = {}
 
-export default function Home() {
+function Home() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
@@ -710,3 +710,5 @@ export default function Home() {
     </div>
   )
 }
+
+export default dynamic(() => Promise.resolve(Home), { ssr: false })

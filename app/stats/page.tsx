@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/client'
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import StaggeredMenu from '@/components/StaggeredMenu'
 import Loader from '@/components/Loader'
 import FeedbackForm from '@/components/FeedbackForm'
@@ -33,7 +34,7 @@ interface TrackerItemStats {
 type TimePeriod = 'today' | 'last7days' | 'last30days' | 'custom' | 'all'
 type ViewMode = 'hours' | 'tracker'
 
-export default function StatsPage() {
+function StatsPage() {
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('hours')
   const [tagStats, setTagStats] = useState<TagStats[]>([])
@@ -616,3 +617,5 @@ export default function StatsPage() {
     </div>
   )
 }
+
+export default dynamic(() => Promise.resolve(StatsPage), { ssr: false })

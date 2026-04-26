@@ -1,19 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import PWADebugger from "@/components/PWADebugger";
 import PWALifecycleManager from "@/components/PWALifecycleManager";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 const APP_NAME = "Ghanto ka Hisaab";
 const APP_DEFAULT_TITLE = "Ghanto ka Hisaab - Track Your Hours";
@@ -78,9 +67,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="Ghanto ka Hisaab" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
       </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className="antialiased">
         <PWALifecycleManager />
         {children}
         <PWAInstallPrompt />

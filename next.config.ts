@@ -1,6 +1,13 @@
+type RuntimeCachingContext = {
+  sameOrigin: boolean;
+  request: Request;
+  url: URL;
+};
+
 const runtimeCaching = [
   {
-    urlPattern: ({ sameOrigin, request }) => sameOrigin && request.destination === 'document',
+    urlPattern: ({ sameOrigin, request }: RuntimeCachingContext) =>
+      sameOrigin && request.destination === 'document',
     handler: 'NetworkFirst',
     options: {
       cacheName: 'app-pages',
@@ -12,7 +19,8 @@ const runtimeCaching = [
     },
   },
   {
-    urlPattern: ({ sameOrigin, url }) => sameOrigin && url.pathname.startsWith('/_next/static/'),
+    urlPattern: ({ sameOrigin, url }: RuntimeCachingContext) =>
+      sameOrigin && url.pathname.startsWith('/_next/static/'),
     handler: 'CacheFirst',
     options: {
       cacheName: 'next-static-assets',
@@ -23,7 +31,7 @@ const runtimeCaching = [
     },
   },
   {
-    urlPattern: ({ sameOrigin, request }) =>
+    urlPattern: ({ sameOrigin, request }: RuntimeCachingContext) =>
       sameOrigin && ['style', 'script', 'worker', 'font', 'image'].includes(request.destination),
     handler: 'StaleWhileRevalidate',
     options: {

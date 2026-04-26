@@ -1,8 +1,9 @@
 'use client'
 
 import { createClient } from '@/utils/supabase/client'
+import dynamic from 'next/dynamic'
 
-export default function LoginPage() {
+function LoginPage() {
   const supabase = createClient()
 
   const handleGoogleAuth = async (isSignUp: boolean) => {
@@ -59,3 +60,5 @@ export default function LoginPage() {
     </div>
   )
 }
+
+export default dynamic(() => Promise.resolve(LoginPage), { ssr: false })

@@ -3,12 +3,13 @@
 import { createClient } from '@/utils/supabase/client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import StaggeredMenu from '@/components/StaggeredMenu'
 import Loader from '@/components/Loader'
 import FeedbackForm from '@/components/FeedbackForm'
 import { getPendingCount, clearPendingEntries } from '@/utils/offlineSync'
 
-export default function SettingsPage() {
+function SettingsPage() {
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -186,3 +187,5 @@ export default function SettingsPage() {
     </div>
   )
 }
+
+export default dynamic(() => Promise.resolve(SettingsPage), { ssr: false })

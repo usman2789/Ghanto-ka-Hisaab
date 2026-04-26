@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/client'
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import StaggeredMenu from '@/components/StaggeredMenu'
 import Loader from '@/components/Loader'
 import FeedbackForm from '@/components/FeedbackForm'
@@ -18,7 +19,7 @@ interface DailyLog {
   [itemId: string]: boolean
 }
 
-export default function TrackerPage() {
+function TrackerPage() {
   const [loading, setLoading] = useState(true)
   const [trackerItems, setTrackerItems] = useState<TrackerItem[]>([])
   const [dailyLogs, setDailyLogs] = useState<DailyLog>({})
@@ -325,3 +326,5 @@ export default function TrackerPage() {
     </div>
   )
 }
+
+export default dynamic(() => Promise.resolve(TrackerPage), { ssr: false })

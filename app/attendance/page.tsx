@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { createClient } from '@/utils/supabase/client'
 import StaggeredMenu from '@/components/StaggeredMenu'
 import Loader from '@/components/Loader'
@@ -46,7 +47,7 @@ const STUDENTS = [
   'ZUNAIRAH KOMAIL'
 ]
 
-export default function AttendancePage() {
+function AttendancePage() {
   const [presentStudents, setPresentStudents] = useState<Set<string>>(new Set())
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -259,3 +260,5 @@ export default function AttendancePage() {
     </div>
   )
 }
+
+export default dynamic(() => Promise.resolve(AttendancePage), { ssr: false })

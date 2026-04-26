@@ -1,353 +1,227 @@
-# 🕐 Ghanto ka Hisaab
+# Ghanto ka Hisaab
 
-<div align="center">
+Ghanto ka Hisaab is a Next.js 16 + Supabase Progressive Web App for tracking how time is spent across the day. The repo currently includes:
 
-![Ghanto ka Hisaab](https://img.shields.io/badge/Ghanto%20ka%20Hisaab-Hour%20Tracker-18181b?style=for-the-badge)
-[![Next.js](https://img.shields.io/badge/Next.js-16.1.1-000000?style=for-the-badge&logo=next.js)](https://nextjs.org/)
-[![Supabase](https://img.shields.io/badge/Supabase-Database-3ECF8E?style=for-the-badge&logo=supabase)](https://supabase.com/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.0-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
+- Hour-by-hour tracking on the main dashboard
+- A newer daily habit tracker at `/tracker-new`
+- Statistics at `/stats`
+- An admin-only attendance helper at `/attendance`
+- Offline-first behavior backed by IndexedDB and a generated service worker
+- A local Graphify knowledge graph under `graphify-out/` for navigating the codebase
 
-**A modern, minimalist hour tracking Progressive Web App (PWA) built with Next.js 16 and Supabase**
+## Stack
 
-[Live Demo](https://ghantokahisaab.vercel.app) · [Report Bug](https://github.com/usman2789/Ghanto-ka-Hisaab/issues) · [Request Feature](https://github.com/usman2789/Ghanto-ka-Hisaab/issues)
+- Next.js 16.1.1 with App Router
+- React 19
+- TypeScript
+- Tailwind CSS 4
+- Supabase Auth + Postgres
+- `next-pwa` for service worker generation and runtime caching
 
-</div>
+## Current App Areas
 
----
+- `/`:
+  Main hour-tracking dashboard with calendar view, tags, notes, and offline sync support
+- `/tracker-new`:
+  Daily tracker for user-defined items with per-day status like completed, partial, or not done
+- `/stats`:
+  Analytics view with hours-based stats and tracker-based stats
+- `/settings`:
+  Sign-out, offline sync visibility, and local pending-data cleanup
+- `/attendance`:
+  Admin-only attendance helper for a fixed student list
+- `/login` and `/signup`:
+  Client-side auth entry points
+- `/auth/callback`:
+  Supabase OAuth callback route
+- `/_offline`:
+  Offline fallback screen served by the PWA setup
 
-## 📖 About
+## Offline and PWA Behavior
 
-**Ghanto ka Hisaab**  is a simple yet powerful hour tracking application that helps you monitor and categorize how you spend your time throughout the day. Track your activities hour by hour, view monthly progress, and gain insights into your daily routines.
+This repo uses `next-pwa` via [next.config.ts](/home/muhmdusman/Desktop/Ghanto-ka-Hisaab/next.config.ts:1).
 
-### ✨ Key Features
+- The production build generates `public/sw.js`
+- Document requests use a `NetworkFirst` strategy
+- `/_next/static/*` assets use `CacheFirst`
+- Styles, scripts, fonts, images, and workers use `StaleWhileRevalidate`
+- Failed document navigations fall back to `/_offline`
 
-- 🔐 **Google OAuth Authentication** - Secure sign-in with Google
-- 📅 **Monthly Calendar View** - Visual representation of tracked days
-- ⏰ **24-Hour Tracking** - Track every hour of your day
-- 🏷️ **Predefined Tags** - Quick categorization (Sleep, Study, Work, Fun, etc.)
-- ➕ **Custom Tags** - Create your own activity categories
-- 📝 **Optional Details** - Add notes to any hour entry
-- 📊 **Progress Indicators** - Color-coded completion status
-- 📱 **Progressive Web App** - Install on any device
-- 🌐 **Offline Support** - Access your data without internet
-- 🎨 **Minimalist Design** - Clean, distraction-free interface
-- 📱 **Fully Responsive** - Works on desktop, tablet, and mobile
+Offline data is not handled by the service worker alone. The app also stores pending and cached user data in IndexedDB through [utils/offlineSync.ts](/home/muhmdusman/Desktop/Ghanto-ka-Hisaab/utils/offlineSync.ts:1). That layer is what lets the hour tracker keep working when the network drops.
 
----
+PWA-related UI helpers:
 
-## 🎯 Use Cases
+- [components/PWALifecycleManager.tsx](/home/muhmdusman/Desktop/Ghanto-ka-Hisaab/components/PWALifecycleManager.tsx:1)
+- [components/PWAInstallPrompt.tsx](/home/muhmdusman/Desktop/Ghanto-ka-Hisaab/components/PWAInstallPrompt.tsx:1)
+- [components/PWADebugger.tsx](/home/muhmdusman/Desktop/Ghanto-ka-Hisaab/components/PWADebugger.tsx:1)
 
-- **Students**: Track study hours, sleep patterns, and leisure time
-- **Professionals**: Monitor work hours, breaks, and productivity
-- **Freelancers**: Log billable hours and project time
-- **Personal Development**: Analyze time allocation and build better habits
-- **Health Tracking**: Monitor sleep, exercise, and meal times
+## Auth and Data
 
----
+Supabase is used for:
 
-## 🚀 Tech Stack
+- Browser auth/session handling
+- User-scoped hour entries
+- User-scoped predefined tags
+- Tracker items and tracker entry data
 
-### Frontend
-- **[Next.js 16](https://nextjs.org/)** - React framework with App Router
-- **[React 19](https://react.dev/)** - UI library
-- **[TypeScript](https://www.typescriptlang.org/)** - Type safety
-- **[Tailwind CSS 4](https://tailwindcss.com/)** - Utility-first styling
+Base schema:
 
-### Backend & Database
-- **[Supabase](https://supabase.com/)** - PostgreSQL database, authentication, and real-time subscriptions
-- **Row Level Security (RLS)** - Data isolation per user
+- [supabase-schema.sql](/home/muhmdusman/Desktop/Ghanto-ka-Hisaab/supabase-schema.sql:1)
 
-### PWA Features
-- **[next-pwa](https://github.com/shadowwalker/next-pwa)** - PWA plugin for Next.js
-- **Service Worker** - Offline functionality with NetworkFirst strategy
-- **Web App Manifest** - Installable app with custom icons
-- **Cache API** - Smart caching for fast loading
-- **Install Prompt** - Custom UI for app installation
-- **Update Management** - Seamless service worker updates
-- **Debug Tools** - PWA debugger for development
+Additional tracker schema:
 
----
+- [supabase-tracker-schema.sql](/home/muhmdusman/Desktop/Ghanto-ka-Hisaab/supabase-tracker-schema.sql:1)
 
-## 📦 Installation
+Important note:
+The repo currently contains a schema naming mismatch. The newer tracker pages at `/tracker-new` and `/stats` query `tracker_entries`, while the older tracker route and `supabase-tracker-schema.sql` still reference `tracker_logs`. If you are setting up a fresh database, verify which tracker schema version you want before deploying.
+
+## Development
 
 ### Prerequisites
-- Node.js 18+ and npm/pnpm/yarn/bun
-- Supabase account
-- Google Cloud Console project (for OAuth)
 
-### 1. Clone the Repository
-```bash
-git clone https://github.com/usman2789/Ghanto-ka-Hisaab.git
-cd Ghanto-ka-Hisaab
-```
+- Node.js 18+
+- npm
+- A Supabase project
 
-### 2. Install Dependencies
+### Install
+
 ```bash
 npm install
-
-# PWA dependencies are included:
-# - next-pwa: PWA plugin for Next.js
-# - webpack: Required for PWA compilation
 ```
 
-### 3. Set Up Environment Variables
-Create a `.env.local` file in the root directory:
+### Environment
+
+Create `.env.local`:
+
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-### 4. Set Up Supabase Database
-Run the SQL schema from `supabase-schema.sql` in your Supabase SQL Editor:
+### Database
+
+Load the SQL files into Supabase:
+
 ```bash
-# Navigate to Supabase Dashboard > SQL Editor
-# Copy and paste the contents of supabase-schema.sql
-# Execute the query
+supabase-schema.sql
+supabase-tracker-schema.sql
 ```
 
-### 5. Configure Google OAuth
+Because of the tracker naming mismatch noted above, review the tracker SQL before using it unchanged.
 
-#### A. Google Cloud Console
-1. Create a new project or select existing
-2. Enable Google+ API
-3. Create OAuth 2.0 credentials
-4. Add authorized redirect URI:
-   ```
-   https://your-project.supabase.co/auth/v1/callback
-   ```
-5. Copy Client ID and Client Secret
+### Run
 
-#### B. Supabase Dashboard
-1. Go to **Authentication** → **Providers**
-2. Enable **Google** provider
-3. Paste Client ID and Client Secret
-4. Save configuration
-
-#### C. Configure Redirect URLs
-1. Go to **Authentication** → **URL Configuration**
-2. Set **Site URL**: `http://localhost:3000` (development)
-3. Add **Redirect URLs**:
-   - `http://localhost:3000/auth/callback`
-# Development mode (PWA disabled for faster development)
+```bash
 npm run dev
+```
 
-# Production build (PWA enabled)
+Open `http://localhost:3000`.
+
+### Production Build
+
+```bash
 npm run build
 npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the app.
+PWA behavior is only fully active in production builds.
 
-**Note**: PWA features are disabled in development mode for faster iteration. To test PWA functionality, build and run in production mode
-npm run dev
+## Project Structure
+
+```text
+app/
+  _offline/page.tsx
+  attendance/page.tsx
+  auth/
+    auth-code-error/page.tsx
+    callback/route.ts
+  layout.tsx
+  login/page.tsx
+  page.tsx
+  settings/page.tsx
+  signup/page.tsx
+  stats/page.tsx
+  tracker/page.tsx
+  tracker-new/page.tsx
+
+components/
+  CalendarView.tsx
+  FeedbackForm.tsx
+  HourTracker.tsx
+  Loader.tsx
+  OfflineSyncManager.tsx
+  PWADebugger.tsx
+  PWAInstallPrompt.tsx
+  PWALifecycleManager.tsx
+  StaggeredMenu.tsx
+
+utils/
+  offlineSync.ts
+  supabase/
+    client.ts
+    middleware.ts
+    server.ts
+
+public/
+  manifest.json
+  sw-custom.js
+  sw.js                 # generated during build
+  workbox-*.js          # generated during build
+
+graphify-out/
+  GRAPH_REPORT.md
+  graph.html
+  graph.json
+  cache/
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the app.
+## Graphify Usage
 
----
+This repo includes a Graphify knowledge graph at `graphify-out/`.
 
-## 🏗️ Project Structure
+Useful files:
 
-```
-ghanto-ka-hisaab/
-├── app/
-│   ├── auth/
-│   │   ├── callback/route.ts      # OAuth callback handler
-│   │   └── auth-code-error/page.tsx
-│   ├── login/page.tsx             # Login page
-│   ├── signup/page.tsx            # Signup page (unused - Google only)
-│   ├── page.tsx                   # Main tracker page
-│   ├── layout.tsx                 # Root layout with PWA meta
-│   └── globals.css                # Global styles
-├── components/
-│   ├── CalendarView.tsx           # Monthly calendar grid
-│   ├── HourTracker.tsx            # Hour tracking modal
-│   ├── PWAInstallPrompt.tsx       # PWA install notification
-│   ├── PWADebugger.tsx            # PWA debug panel (dev only)
-│   └── PWALifecycleManager.tsx    # Service worker lifecycle handler
-├── utils/
-│   └── supabase/
-│       ├── client.ts              # Browser Supabase client
-│       ├── server.ts              # Server Supabase client
-│       └── middleware.ts          # Session management
-├── public/Generated service worker
-│   ├── workbox-*.js               # Workbox runtime
-│   ├── android-chrome-192x192.png # App icon (192x192)
-│   ├── android-chrome-512x512.png # App icon (512x512)
-│   └── apple-touch-icon.png       # iOS app icon
-├── proxy.ts                       # Next.js 16 proxy (replaces middleware)
-├── next.config.js                 # Next.js config with PWA setup
-├── PWA_DOCUMENTATION.md           # Complete PWA technical docs
-├── PWA_SIMPLE_GUIDE.md            # PWA explained simply
-│   └── icon-512.png               # App icon (512x512)
-├── proxy.ts                       # Next.js 16 proxy (replaces middleware)
-├── supabase-schema.sql            # Database schema
-└── .env.local                     # Environment variables (gitignored)
+- `graphify-out/GRAPH_REPORT.md`:
+  Summary of communities, hubs, and likely cross-module relationships
+- `graphify-out/graph.html`:
+  Visual graph explorer
+- `graphify-out/graph.json`:
+  Raw graph data
+
+The repository guidance in [AGENTS.md](/home/muhmdusman/Desktop/Ghanto-ka-Hisaab/AGENTS.md:1) recommends:
+
+- Read `graphify-out/GRAPH_REPORT.md` before answering architecture questions
+- Prefer graph-based exploration over grep for cross-module relationships
+- Refresh the graph after code changes with:
+
+```bash
+graphify update .
 ```
 
----
+If `graphify` is installed in your environment, you can also use commands like:
 
-## 🎨 Features in Detail
-
-### Calendar View
-- Displays all days of the current month
-- Color-coded progress:
-  - **White**: No entries
-  - **Red**: 1-7 hours tracked
-  - **Yellow**: 8-15 hours tracked
-  - **Green**: 16-24 hours tracked
-- Shows hour count on each day
-- Click any date to track hours
-
-### Hour Tracking Modal
-- 24 vertical hour slots (00:00 - 23:00)
-- Each slot shows existing tags
-- **Smart Install Prompt**: Custom UI appears after engagement criteria met
-- **Offline Support**: Full functionality without internet using NetworkFirst caching
-- **Home Screen Installation**: Add to home screen on iOS and Android
-- **Standalone Experience**: Opens like a native app (no browser UI)
-- **Fast Loading**: Service worker caches resources for instant loading
-- **Auto-Updates**: Seamless service worker updates with user prompts
-- **Debug Panel**: Development-only panel to monitor PWA status
-- **Cross-Device Sync**: Works across all your devices via Supabase
-
-### How PWA Works
-```
-First Visit:
-  → Download app and cache resources
-  → Register service worker
-  → Save to cache storage
-
-Next Visits:
-  → Load from cache (instant! ⚡)
-  → Check for updates in background
-  → Sync with server when online
-
-Offline:
-  → Service worker serves cached version
-  → Full app functionality maintained
-  → Data syncs when connection restored
+```bash
+graphify query "how does offline sync connect to the dashboard?"
+graphify path "app/page.tsx" "utils/offlineSync.ts"
+graphify explain "service worker"
 ```
 
-For detailed PWA documentation, see:
-- **[PWA_DOCUMENTATION.md](PWA_DOCUMENTATION.md)** - Complete technical guide
-- **[PWA_SIMPLE_GUIDE.md](PWA_SIMPLE_GUIDE.md)** - Easy-to-understand explanation
+In this workspace, the generated graph output already exists even if the `graphify` CLI is not installed globally.
 
-### PWA Features
-- Install prompt appears after login
-- Works offline with cached data
-- Home screen icon
-- Standalone app experience
-- Fast loading with service worker
+## Notes on Current State
 
----
+- The main README has been updated to match the current code paths, not just older summary docs
+- The build is configured for webpack-based Next.js builds
+- The app currently keeps both an older tracker route (`/tracker`) and a newer tracker route (`/tracker-new`)
+- `next.config.ts` is the meaningful PWA config file in current use
+- `public/sw.js` and `workbox-*` files are generated artifacts and may change after each production build
 
-## 🚢 Deployment
+## Related Docs
 
-### Deploy to Vercel
+- [PWA_DOCUMENTATION.md](/home/muhmdusman/Desktop/Ghanto-ka-Hisaab/PWA_DOCUMENTATION.md:1)
+- [PWA_SIMPLE_GUIDE.md](/home/muhmdusman/Desktop/Ghanto-ka-Hisaab/PWA_SIMPLE_GUIDE.md:1)
+- [TRACKER_FEATURE_SUMMARY.md](/home/muhmdusman/Desktop/Ghanto-ka-Hisaab/TRACKER_FEATURE_SUMMARY.md:1)
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/usman2789/Ghanto-ka-Hisaab)
+## License
 
-#### Manual Deployment Steps
-
-1. **Push to GitHub**
-   ```bash
-   git add .
-   git commit -m "Initial commit"
-   git push origin main
-   ```
-
-2. **Import to Vercel**
-   - Go to [vercel.com](https://vercel.com)
-   - Import your repository
-   - Add environment variables:
-     - `NEXT_PUBLIC_SUPABASE_URL`
-     - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-
-3. **Update Supabase Settings**
-   - Add production URL to redirect URLs
-   - Update site URL
-
-4. **Update Google OAuth**
-   - Add production domain to authorized origins
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Here's how you can help:
-
-### ✅ Completed
-- [x] Progressive Web App (PWA) implementation
-- [x] Offline support with service workers
-- [x] Install prompt with custom UI
-- [x] Service worker lifecycle management
-- [x] PWA debugging tools
-- [x] Comprehensive PWA documentation
-
-### 🚧 In Progress
-- [ ] Export data to CSV/JSON
-- [ ] Weekly/Monthly analytics dashboard
-
-### 📅 Planned
-- [ ] Dark mode support
-- [ ] Multiple language support
-- [ ] Recurring task templates
-- [ ] Time goal setting
-- [ ] Data visualization charts
-- [ ] Push notifications for reminders
-- [ ] Background sync for offline edits
-- Use Tailwind CSS for styling
-- Write meaningful commit messages
-- Test on multiple devices
-- Update documentation
-
----
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
-
-- **Next.js Team** - For the amazing framework
-- **Supabase Team** - For the backend platform
-- **Vercel** - For hosting
-- **Tailwind CSS** - For the styling system
-- **Community** - For feedback and contributions
-
----
-
-## 📧 Contact
-
-Project Link: [https://github.com/usman2789/Ghanto-ka-Hisaab](https://github.com/usman2789/Ghanto-ka-Hisaab)
-
-Live Demo: [https://ghantokahisaab.vercel.app](https://ghantokahisaab.vercel.app)
-
----
-
-## 🗺️ Roadmap
-
-- [ ] Export data to CSV/JSON
-- [ ] Weekly/Monthly analytics dashboard
-- [ ] Dark mode support
-- [ ] Multiple language support
-- [ ] Recurring task templates
-- [ ] Time goal setting
-- [ ] Data visualization charts
-- [ ] Mobile native apps (React Native)
-- [ ] Team/Family sharing features
-- [ ] API for third-party integrations
-
----
-
-<div align="center">
-
-Made with ❤️ and ⏰
-
-**Star ⭐ this repository if you find it helpful!**
-
-</div>
+See [LICENSE](/home/muhmdusman/Desktop/Ghanto-ka-Hisaab/LICENSE:1).

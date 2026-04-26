@@ -1,3 +1,7 @@
+'use client'
+
+import Link from 'next/link'
+
 export default function Offline() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-white p-8 text-center">
@@ -7,12 +11,12 @@ export default function Offline() {
           Ghanto ka Hisaab will use cached screens and offline data when available. Reconnect if this is your first time opening the app on this device.
         </p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <a
+          <Link
             href="/"
             className="px-6 py-3 rounded-lg border-2 border-zinc-900 bg-zinc-900 text-white hover:bg-zinc-800 transition-colors"
           >
             Open Dashboard
-          </a>
+          </Link>
           <button
             onClick={() => window.location.reload()}
             className="px-6 py-3 rounded-lg border-2 border-zinc-900 bg-white text-zinc-900 hover:bg-zinc-100 transition-colors"
