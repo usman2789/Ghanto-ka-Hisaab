@@ -93,9 +93,24 @@ function Home() {
     const { data, error } = await supabase
       .from('user_predefined_tags')
       .select('user_id, tag')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: true })
 
-    if (!error && data) {
+    if (error) {
+      console.error('Error loading saved tags from Supabase:', error)
+
+      try {
+        const fallbackTags = await getMergedUserPredefinedTags(user.id)
+        setUserPredefinedTags(mergeUniqueTags(fallbackTags))
+      } catch (e) {
+        console.error('Error loading fallback saved tags:', e)
+        setUserPredefinedTags([])
+      }
+
+      return
+    }
+
+    if (data) {
       const rows = data as UserPredefinedTagRow[]
 
       try {
@@ -140,6 +155,7 @@ function Home() {
     const { data, error } = await supabase
       .from('hour_entries')
       .select('date, hour')
+      .eq('user_id', user.id)
       .gte('date', firstDay)
       .lte('date', lastDay)
 
@@ -301,6 +317,7 @@ function Home() {
     const { data, error } = await supabase
       .from('hour_entries')
       .select('*')
+      .eq('user_id', user.id)
       .eq('date', dateStr)
 
     if (!error && data) {
@@ -466,7 +483,10 @@ function Home() {
     if (error) {
       console.error('Error saving user predefined tag:', error)
       await loadUserPredefinedTags()
+      return
     }
+
+    await loadUserPredefinedTags()
   }
 
   const handleDeleteUserPredefinedTag = async (tag: string) => {
@@ -503,7 +523,10 @@ function Home() {
     if (error) {
       console.error('Error deleting user predefined tag:', error)
       await loadUserPredefinedTags()
+      return
     }
+
+    await loadUserPredefinedTags()
   }
 
   const handleSignOut = async () => {
